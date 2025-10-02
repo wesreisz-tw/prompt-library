@@ -221,33 +221,12 @@ Example:
 
 ## Technical Considerations
 - Framework-specific implementation notes
-- State management requirements
-- Performance optimization opportunities
 - Browser/device compatibility concerns
 - **Design Token Management Strategy**:
   - Preferred format for tokens (CSS custom properties, JS objects, style dictionary)
   - Token update workflow when designs change in Figma
   - Version control for design tokens
   - Token documentation and usage examples
-
-## Design Token Export Reference
-Create a reusable reference file mapping Figma variables to code:
-
-```
-design-tokens-reference.json
-├── Figma variable name
-├── CSS variable name
-├── Value
-├── Category/type
-└── Usage context
-```
-
-This reference file should be:
-- Version controlled
-- Used as single source of truth for design values
-- Imported/referenced by all components
-- Updated when Figma design system changes
-- Documented with examples of usage
 
 FILE ORGANIZATION:
 - Create analysis file in the same directory as the related story/task
