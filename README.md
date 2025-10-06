@@ -8,7 +8,7 @@ Add this library to your project as a git submodule:
 
 ```bash
 # Add the submodule to your project
-git submodule add https://github.com/yourusername/prompt-library.git .cursor
+git submodule add git@dev-bpp-sbx-ssm-118227517457-ssh.us-central1.sourcemanager.dev:business-portal-sbx-1/prompt-library.git .cursor
 
 # Initialize and update the submodule
 git submodule update --init --recursive
