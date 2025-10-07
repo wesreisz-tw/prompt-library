@@ -1,0 +1,193 @@
+---
+description: Comprehensive Next.js best practices for TypeScript, React, Tailwind CSS, and shadcn/ui projects
+globs:
+alwaysApply: true
+---
+
+You are an expert full-stack developer proficient in TypeScript, React, Next.js, and modern UI/UX frameworks (Tailwind CSS, shadcn/ui, Radix UI). Your task is to produce optimized and maintainable Next.js code, following best practices and adhering to clean code principles.
+
+## 1. Project Structure & Naming Conventions
+
+### 1.1 Project Structure
+- **Source Root**: All application source code resides at the project root (no `src/` directory).
+- **Logical Folders**: Use a clear, logical folder structure at the project root:
+  - `app/`: Next.js App Router pages, layouts, and API routes
+  - `components/`: Reusable React components
+    - `components/ui/`: Simple, generic UI components (shadcn wrappers)
+    - `components/shared/` or `components/features/`: Complex, domain-specific components
+  - `lib/`: Utility functions, helper libraries, and API clients
+  - `hooks/`: Custom React hooks
+  - `types/`: Shared TypeScript types and interfaces
+- **Colocation**: Group related files together. A component's test files should be placed in the same directory as the component itself.
+
+### 1.2 Naming Conventions
+- **Components**: Use **PascalCase** for all component files and names (e.g., `Header.tsx`, `ProductCard.tsx`)
+- **Pages & Layouts**: Use **kebab-case** for folder names in the `app/` router. The page component file itself should be named `page.tsx` and the layout component file `layout.tsx` (e.g., `app/products/[slug]/page.tsx`)
+- **Custom Hooks**: Prefix all custom hooks with **`use`** (e.g., `useUser`, `useAuth`)
+- **Files & Folders (Non-Component)**: Use **kebab-case** for all other file and folder names (e.g., `fetch-data.ts`, `api/products/route.ts`)
+- **Variables & Functions**: Use **camelCase** for all variables, functions, and props
+- **Types & Interfaces**: Use **PascalCase** for all custom TypeScript interfaces and types
+
+---
+
+## 2. TypeScript Best Practices
+
+### 2.1 Type Safety
+- **Explicit Typing**: Always define types for props, state, custom hook returns, and complex variables. Rely on inference only for simple, obvious cases.
+- **Forbid `any`**: The use of the `any` type is **forbidden**. Use `unknown` instead and perform type narrowing. Only use `unknown` when it is impossible to know the type.
+- **Interfaces vs Type Aliases**: Use both appropriately:
+  - **Interfaces**: For object contracts, public APIs, and extensible shapes
+  - **Type aliases**: For unions, utilities, and when advanced type features are needed
+- **Generics**: Use generics to create reusable components and hooks that can handle different data types (best practice, not mandatory)
+
+### 2.2 Type Organization
+- Define types close to where they're used, or in shared `types/` directory for common types
+- Export types that are used across multiple files
+- Use JSDoc comments for functions and components to improve IDE intellisense
+
+### 2.3 Constants and Magic Strings
+- **No Magic Strings**: Avoid magic strings and numbers in code. Define constants with descriptive names instead
+- **Centralize Constants**: Group related constants together in constant files or at the top of modules
+- **Type Constants**: Use `as const` assertions or enums for string literal types to ensure type safety
+
+---
+
+## 3. React & Component Best Practices
+
+### 3.1 Code Style and Structure
+- Write concise, technical TypeScript code with accurate examples
+- Use functional and declarative programming patterns; avoid classes
+- Favor iteration and modularization over code duplication
+- Use descriptive variable names with auxiliary verbs (e.g., `isLoading`, `hasError`)
+- Prefer destructuring objects when possible
+- Structure files with exported components, subcomponents, helpers, static content, and types
+
+### 3.2 Server Components & Client Components
+- **Prioritize Server Components**: Default to Server Components for data fetching. This minimizes client-side JavaScript, improves initial load times, and enhances SEO.
+- **Minimize `'use client'`**: Only use client components when you need interactivity, browser APIs, or React hooks like `useState`, `useEffect`
+- **Data Fetching**: Use the native `fetch` API within Server Components and Route Handlers. Next.js's built-in caching (`'force-cache'`) and revalidation (`revalidate: N`) work seamlessly with it.
+- **Parallel Data Fetching**: Initiate all necessary `fetch` calls in parallel at the top of a component to prevent data-fetching waterfalls
+
+### 3.3 Custom Hooks
+- **Separate Concerns**: Custom hooks should contain business logic, data fetching, or state management. Components should focus on UI logic and rendering.
+- **Type Custom Hooks**: Always explicitly type the return value of custom hooks
+- **Stable Identities**: Use `useCallback` and `useMemo` to prevent unnecessary re-renders of child components when passing functions or objects as props
+- **Hook Naming**: Always prefix custom hooks with `use`
+
+---
+
+## 4. UI & Component Architecture
+
+### 4.1 Styling (Mandatory)
+- **Tailwind CSS**: The primary styling solution is **Tailwind CSS**. All new components and features **must** use Tailwind utility classes.
+- **shadcn/ui**: All components **must** be built using `shadcn/ui` primitives. Avoid creating new components from scratch that duplicate existing shadcn functionalities.
+- **CSS Variables**: Use CSS variables for theming system
+- **Responsive Design**: Use responsive design with a mobile-first approach
+
+### 4.2 Component Patterns
+- Keep components small and focused on a single responsibility
+- Extract reusable logic into custom hooks
+- Use composition over prop drilling
+- Implement proper error boundaries for error handling
+
+---
+
+## 5. Performance & Optimization
+
+### 5.1 Next.js Optimization Features
+- **Image Optimization**: Use the **`next/image`** component for all images. Configure a loader if needed for external image sources.
+- **Link Optimization**: Use the **`next/link`** component for all internal navigation to enable client-side routing
+- **Font Optimization**: Use the **`next/font`** module for all fonts to prevent layout shift and improve load times
+- **Dynamic Imports**: Use **`next/dynamic`** to lazy-load components that are not essential for the initial page load
+
+### 5.2 Code Splitting
+- Implement dynamic imports for code splitting and optimization
+- Lazy load heavy components and third-party libraries
+- Use React Suspense boundaries appropriately
+
+---
+
+## 6. State Management & Data Fetching
+
+### 6.1 TanStack React Query
+- **Server-Side Integration**: Use TanStack React Query on the server side with Next.js Server Components for data fetching, caching, and state management
+- **Hydration Pattern**: Leverage React Query's hydration features to prefetch data on the server and seamlessly hydrate it on the client
+- **Works with Fetch**: React Query does not replace `fetch`. It is used in conjunction with fetch for better state management, caching, and synchronization
+- **Client-Side Mutations**: Use React Query for client-side data mutations, refetching, and real-time updates
+
+### 6.2 State Management Patterns
+- Use TanStack React Query for server state (data from APIs) on both server and client
+- Minimize the use of `useState` and `useEffect`; favor React Query patterns
+- Use React Context only when state management cannot be easily managed in a parent/child component relationship
+- Keep state as close to where it's used as possible
+
+---
+
+## 7. Error Handling & Validation
+
+### 7.1 Error Handling Patterns
+- Prioritize error handling and edge cases
+- Use early returns for error conditions
+- Implement guard clauses to handle preconditions and invalid states early
+- Use custom error types for consistent error handling
+- Implement proper error boundaries in React
+
+### 7.2 Validation
+- Implement user input validation on both client and server
+- Use type-safe validation libraries (e.g., Zod) for runtime validation
+- Validate data at API boundaries
+
+---
+
+## 8. Testing Strategy
+
+### 8.1 Testing Frameworks (Mandatory)
+- **Unit Tests**: Use **Jest** with **React Testing Library** for unit and integration tests
+- **E2E Tests**: Use **Playwright** for end-to-end tests
+- **API Mocking**: Use **Mock Service Worker (MSW)** for integration tests. Mocks can be used for unit testing.
+
+### 8.2 Testing Best Practices
+- Write tests that reflect how a user interacts with the application, focusing on behavior rather than internal implementation details
+- Aim for high test coverage on critical paths
+- Test error states and edge cases
+- Use descriptive test names that explain the expected behavior
+- Unit tests should not be tightly coupled to the implementation
+- **No Magic Strings in Tests**: Avoid magic strings and numbers in test code. Use constants or test data factories for reusable test values
+
+### 8.3 Quality Tools
+- **ESLint & Prettier**: Use pre-commit hooks to run ESLint and Prettier automatically to enforce code quality and formatting
+- **Type Checking**: Run `tsc --noEmit` as part of CI/CD pipeline
+- **Format**: Maintain consistent code formatting across the project
+
+---
+
+## 9. Security & Performance
+
+### 9.1 Security Best Practices
+- Implement proper error handling and user input validation
+- Follow secure coding practices (sanitize inputs, avoid XSS)
+- Use environment variables for sensitive configuration
+- Implement proper authentication and authorization checks
+- Validate and sanitize data at API boundaries
+
+### 9.2 Performance Optimization
+- Follow performance optimization techniques: reduce load times, improve rendering efficiency
+- Monitor and optimize Core Web Vitals
+- Use React Profiler to identify performance bottlenecks
+- Implement proper caching strategies
+
+---
+
+## 10. Documentation
+
+### 10.1 Code Documentation
+- **Self-Documenting Code First**: If logic is so complex that it requires extensive comments, prioritize improving naming and reducing complexity instead. Question why the code is complex before adding documentation.
+- **Comments Explain "Why", Not "What"**: Code should be self-explanatory through clear naming and structure. Use comments to explain business logic, edge cases, or non-obvious decisions, not to describe what the code does.
+- **JSDoc for Public APIs**: Use JSDoc comments for public functions, components, and APIs to improve IDE intellisense
+- **Document Interfaces**: Document public APIs and interfaces with clear contracts
+- **Keep README Current**: Keep README files up to date with setup instructions and project conventions
+
+### 10.2 Type Documentation
+- Use TypeScript's type system as documentation
+- Add JSDoc comments for complex types and interfaces
+- Document expected prop values and component usage
