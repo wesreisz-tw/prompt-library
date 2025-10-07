@@ -17,6 +17,7 @@ git submodule update --init --recursive
 git submodule update --remote .cursor
 
 ```
+To update the prompt library when pulling the parent repository, use `git pull --recurse-submodules`
 
 ## What's Included
 
