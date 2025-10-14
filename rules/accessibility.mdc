@@ -1,8 +1,7 @@
 ---
 description: Accessibility rules for WCAG 2.1 Level AA compliance, keyboard navigation, screen reader support, and inclusive design
-alwaysApply: true
+alwaysApply: false
 ---
-
 # Accessibility Rules
 
 ## 1. WCAG 2.1 Level AA Compliance

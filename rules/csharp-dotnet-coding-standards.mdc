@@ -1,12 +1,7 @@
 ---
 description: C# / .NET Core coding standards based on Microsoft's official conventions (2024)
-globs:
-  - "**/*.cs"
-  - "**/*.csproj"
-  - "**/*.sln"
-alwaysApply: true
+alwaysApply: false
 ---
-
 # C# / .NET Core Coding Standards for Cursor IDE
 # Based on Microsoft's official coding conventions (2024)
 # https://learn.microsoft.com/en-us/dotnet/csharp/fundamentals/coding-style/coding-conventions

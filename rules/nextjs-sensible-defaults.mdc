@@ -1,9 +1,7 @@
 ---
 description: Comprehensive Next.js best practices for TypeScript, React, Tailwind CSS, and shadcn/ui projects
-globs:
-alwaysApply: true
+alwaysApply: false
 ---
-
 You are an expert full-stack developer proficient in TypeScript, React, Next.js, and modern UI/UX frameworks (Tailwind CSS, shadcn/ui, Radix UI). Your task is to produce optimized and maintainable Next.js code, following best practices and adhering to clean code principles.
 
 ## 1. Project Structure & Naming Conventions
@@ -196,38 +194,20 @@ const ERROR_INVALID_INPUT = "Invalid input"
 
 ---
 
-## 8. Testing Strategy
-
-### 8.1 Testing Frameworks (Mandatory)
-- **Unit Tests**: Use **Jest** with **React Testing Library** for unit and integration tests
-- **E2E Tests**: Use **Playwright** for end-to-end tests
-- **API Mocking**: Use **Mock Service Worker (MSW)** for integration tests. Mocks can be used for unit testing.
-
-### 8.2 Testing Best Practices
-- Write tests that reflect how a user interacts with the application, focusing on behavior rather than internal implementation details
-- Aim for high test coverage on critical paths
-- Test error states and edge cases
-- Use descriptive test names that explain the expected behavior
-- Unit tests should not be tightly coupled to the implementation
-- **No Magic Strings in Tests**: Avoid magic strings and numbers in test code. Use constants or test data factories for reusable test values
-
-### 8.3 Quality Tools
-- **ESLint & Prettier**: Use pre-commit hooks to run ESLint and Prettier automatically to enforce code quality and formatting
-- **Type Checking**: Run `tsc --noEmit` as part of CI/CD pipeline
-- **Format**: Maintain consistent code formatting across the project
+**Note**: For comprehensive testing guidelines, see `.cursor/rules/frontend-testing.mdc`
 
 ---
 
-## 9. Security & Performance
+## 8. Security & Performance
 
-### 9.1 Security Best Practices
+### 8.1 Security Best Practices
 - Implement proper error handling and user input validation
 - Follow secure coding practices (sanitize inputs, avoid XSS)
 - Use environment variables for sensitive configuration
 - Implement proper authentication and authorization checks
 - Validate and sanitize data at API boundaries
 
-### 9.2 Performance Optimization
+### 8.2 Performance Optimization
 - Follow performance optimization techniques: reduce load times, improve rendering efficiency
 - Monitor and optimize Core Web Vitals
 - Use React Profiler to identify performance bottlenecks
@@ -235,16 +215,16 @@ const ERROR_INVALID_INPUT = "Invalid input"
 
 ---
 
-## 10. Documentation
+## 9. Documentation
 
-### 10.1 Code Documentation
+### 9.1 Code Documentation
 - **Self-Documenting Code First**: If logic is so complex that it requires extensive comments, prioritize improving naming and reducing complexity instead. Question why the code is complex before adding documentation.
 - **Comments Explain "Why", Not "What"**: Code should be self-explanatory through clear naming and structure. Use comments to explain business logic, edge cases, or non-obvious decisions, not to describe what the code does.
 - **JSDoc for Public APIs**: Use JSDoc comments for public functions, components, and APIs to improve IDE intellisense
 - **Document Interfaces**: Document public APIs and interfaces with clear contracts
 - **Keep README Current**: Keep README files up to date with setup instructions and project conventions
 
-### 10.2 Type Documentation
+### 9.2 Type Documentation
 - Use TypeScript's type system as documentation
 - Add JSDoc comments for complex types and interfaces
 - Document expected prop values and component usage

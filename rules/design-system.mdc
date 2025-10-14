@@ -1,8 +1,7 @@
 ---
 description: Design system rules for Figma-driven development, design tokens, typography, and responsive patterns
-alwaysApply: true
+alwaysApply: false
 ---
-
 # Design System Rules
 
 ## 1. Figma-Driven Design Tokens

@@ -1,9 +1,7 @@
 ---
 description: "Python Style Guide - Modern Best Practices (2025)"
-globs: ["**/*.py"]
-alwaysApply: true
+alwaysApply: false
 ---
-
 # Python Development Style Guide (2025)
 
 This document defines the Python coding standards for this project, incorporating PEP 8, modern Python 3.11+ features, and industry best practices as of 2025.
