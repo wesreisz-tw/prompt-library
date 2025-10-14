@@ -1,0 +1,367 @@
+---
+description: Design system rules for Figma-driven development, design tokens, typography, and responsive patterns
+alwaysApply: true
+---
+
+# Design System Rules
+
+## 1. Figma-Driven Design Tokens
+
+### 1.1 Design Token Architecture
+- **All design values MUST come from Figma**: Never hardcode colors, spacing, typography, or other design values
+- **CSS Variables**: Define design tokens as CSS variables in `app/globals.css` that map directly to Figma variables
+- **Hierarchical Naming**: Use Figma's naming convention: `{category}/{subcategory}/{variant}` (e.g., `base/foreground`, `spacing/8`, `text-base/leading-normal/normal`)
+- **Documentation Required**: When adding new tokens, update both `app/globals.css` and create/update design analysis documentation in `specifications/`
+
+### 1.2 Design Token Categories
+
+**Colors**:
+- `base/foreground`, `base/background`, `base/primary`, `base/primary-foreground`
+- `base/border`, `base/input`, `base/muted-foreground`
+- `custom/accent` for hover states
+- Map to CSS variables: `--color-foreground`, `--color-background`, etc.
+
+**Typography**:
+- `font/font-sans` → Roboto (400, 700, 800 weights)
+- `text-5xl/leading-normal/extrabold` (48px H1 desktop)
+- `text-4xl/leading-normal/extrabold` (36px H1 mobile)
+- `text-base/leading-normal/normal` (16px body)
+- `text-sm/leading-normal/medium` (14px buttons)
+
+**Spacing**:
+- `spacing/2` (8px), `spacing/4` (16px), `spacing/6` (24px), `spacing/8` (32px), `spacing/10` (40px), `spacing/12` (48px), `spacing/20` (80px)
+- Use Tailwind utilities: `gap-2`, `p-4`, `gap-6`, `gap-8`
+
+**Borders & Shadows**:
+- `border-radius/rounded-md` (8px) → `--border-radius-md`
+- `shadow/xs` → `--shadow-xs` (0px 1px 2px rgba(0,0,0,0.05))
+- `shadow/sm` → `--shadow-sm` (multi-layer shadow)
+
+**Breakpoints**:
+- `breakpoint/sm` (360px) → Mobile
+- `breakpoint/md` (768px) → Tablet
+- `breakpoint/2xl` (1440px) → Desktop
+
+### 1.3 Using Design Tokens in Code
+
+**In Tailwind Classes**:
+```tsx
+className="rounded-[var(--border-radius-md)]"
+className="min-h-[120px]"
+className="shadow-[0px_1px_2px_0px_rgba(0,0,0,0.05)]"
+```
+
+**Responsive Widths**:
+```tsx
+className="max-w-[312px] sm:max-w-[704px] lg:max-w-[604px]"
+```
+
+**DO NOT**:
+- Use arbitrary pixel values without checking Figma first
+- Create new spacing values that don't match the design system
+- Hardcode colors as hex values in component code
+
+---
+
+## 2. Tailwind CSS v4 Architecture
+
+### 2.1 Configuration Approach
+- **CSS-Based Configuration**: Use `@theme inline` directive in `app/globals.css` (NO `tailwind.config.js`)
+- **Custom Utilities**: Define in `@theme inline` block that reference design token CSS variables
+- **Direct CSS Variable References**: Use `var()` in className attributes for direct token access
+
+### 2.2 Theme Extensions
+All custom utilities defined in `@theme inline` block:
+```css
+@theme inline {
+  --color-foreground: var(--foreground);
+  --radius-md: calc(var(--radius) - 2px);
+  --shadow-token-xs: var(--shadow-xs);
+}
+```
+
+### 2.3 Utility Class Patterns
+- **Prefer Tailwind utilities** over custom CSS
+- **Use `cn()` utility** for className merging (clsx + tailwind-merge)
+- **Mobile-first responsive design**: Default styles for mobile, then `sm:`, `md:`, `2xl:` prefixes
+
+---
+
+## 3. Typography System
+
+### 3.1 Font Configuration
+- **Primary Font**: Roboto via `next/font/google`
+- **Weights Required**: 400 (Regular), 700 (Bold), 800 (ExtraBold for headers)
+- **Variable**: `--font-roboto` applied to body element
+- **Display**: `swap` for performance
+- **Configuration Location**: `app/layout.tsx`
+
+### 3.2 Font Loading
+```tsx
+import { Roboto } from "next/font/google";
+
+const roboto = Roboto({
+  weight: ['400', '700', '800'],
+  subsets: ["latin"],
+  variable: "--font-roboto",
+  display: 'swap',
+});
+```
+
+### 3.3 Typography Scale
+| Element | Desktop | Tablet/Mobile | Line Height | Weight |
+|---------|---------|---------------|-------------|--------|
+| H1 | 48px | 36px | 48px / 40px | 800 (ExtraBold) |
+| Body | 16px | 16px | 24px | 400 (Regular) |
+| Button | 14px | 14px | 20px | 500 (Medium) |
+| Small | 14px | 14px | 20px | 400 (Regular) |
+
+### 3.4 Implementation
+```tsx
+// Desktop H1
+<h1 className="text-[48px] leading-[48px] font-extrabold font-['Roboto']">
+
+// Mobile H1  
+<h1 className="text-[36px] leading-[40px] font-extrabold font-['Roboto']">
+
+// Body text
+<p className="text-[16px] leading-[24px] font-normal font-['Roboto']">
+```
+
+**Note**: If Roboto:ExtraBold (weight 800) is not yet loaded, add it to the font configuration.
+
+---
+
+## 4. Color System
+
+### 4.1 OKLCH Color Space
+- **Use OKLCH exclusively** for perceptually uniform colors across light/dark modes
+- **Format**: `oklch(lightness chroma hue)`
+- **Example**: `oklch(0.145 0 0)` for dark foreground
+
+### 4.2 Light Mode Colors
+```css
+--background: oklch(1 0 0);           /* White */
+--foreground: oklch(0.145 0 0);       /* Near black */
+--primary: oklch(0.205 0 0);          /* Dark gray */
+--muted-foreground: oklch(0.556 0 0); /* Medium gray */
+--border: oklch(0.922 0 0);           /* Light gray */
+```
+
+### 4.3 Dark Mode Colors
+```css
+.dark {
+  --background: oklch(0.145 0 0);       /* Near black */
+  --foreground: oklch(0.985 0 0);       /* Near white */
+  --primary: oklch(0.922 0 0);          /* Light gray */
+  --muted-foreground: oklch(0.708 0 0); /* Medium-light gray */
+  --border: oklch(1 0 0 / 10%);         /* White with opacity */
+}
+```
+
+### 4.4 Color Usage
+- **Body Text**: `text-foreground` or `text-slate-900`
+- **Primary Buttons**: `bg-primary text-primary-foreground`
+- **Muted Text**: `text-muted-foreground` or `text-neutral-500`
+- **Borders**: `border-border` or `border-neutral-200`
+- **Hover States**: `bg-neutral-100` (light gray background)
+
+---
+
+## 5. Responsive Design Patterns
+
+### 5.1 Breakpoint Strategy
+- **Mobile First**: Default styles target 360px width
+- **Tablet**: `md:` prefix for 768px+
+- **Desktop**: `2xl:` prefix for 1440px+
+- **Max Width**: Content constrained at 1280px-1440px on desktop
+
+### 5.2 Component Adaptations
+
+**Header**:
+- Desktop (1440px+): Full logo (189×40px), inline navigation, 80px horizontal padding
+- Tablet (768-1439px): Full logo, drawer navigation, 32px padding
+- Mobile (360-767px): Compact logo (36×36px), drawer navigation, 24px padding
+
+**Hero**:
+- Desktop: H1 48px, max-width 960px, 80px padding
+- Tablet: H1 36px, max-width 524px, 32px padding  
+- Mobile: H1 36px, full-width, 24px padding
+
+**Footer**:
+- Desktop: Horizontal layout, max-width 1280px, 96px padding
+- Tablet/Mobile: Vertical stack, center-aligned, 64px padding
+
+### 5.3 Responsive Width Pattern
+```tsx
+// Component-specific responsive widths
+className="w-full max-w-[312px] sm:max-w-[704px] lg:max-w-[604px] mx-auto"
+```
+
+### 5.4 Touch vs Mouse Considerations
+- **All interactive elements**: Minimum 44×44px touch target (WCAG 2.5.5)
+- **Visual size can be smaller**: Use padding/margin technique (e.g., `p-1 -m-1` extends 36px to 44px)
+- **Hover states**: Desktop only, skip on touch devices
+
+---
+
+## 6. Component Composition
+
+### 6.1 shadcn/ui Requirements
+- **MUST use shadcn/ui primitives**: Never create components from scratch that duplicate shadcn functionality
+- **Component Library**: Button, Textarea, Input, NavigationMenu, Drawer, etc.
+- **Customization**: Use `className` prop and `cn()` utility for styling
+- **Variants**: Use `class-variance-authority` for component variants
+
+### 6.2 Component Structure
+```tsx
+// Example: Using shadcn Button with design tokens
+<Button
+  variant="default"
+  size="icon"
+  className="size-9 rounded-[var(--border-radius-md)] shadow-[var(--shadow-xs)]"
+>
+  <Icon className="size-4" />
+</Button>
+```
+
+### 6.3 Component Patterns
+- **Single Responsibility**: Each component has one clear purpose
+- **Composition over Props**: Favor children and slots over complex prop APIs
+- **Reusable Primitives**: Extract common patterns into shared components
+
+---
+
+## 7. Design Analysis Documentation
+
+### 7.1 Required Documentation
+When implementing Figma designs, create a design analysis document in `specifications/{story}/`:
+- **File Name**: `design-analysis-{STORY}.md`
+- **Content**: Component breakdown, design tokens used, responsive behavior, Figma node IDs
+- **Purpose**: Single source of truth linking Figma to code
+
+### 7.2 Design Analysis Structure
+```markdown
+# Design Analysis - {STORY}: {Title}
+
+## Design Overview
+- Purpose, user flows, design system references
+
+## Design Tokens (Extracted from Figma Variables)
+- Colors, Typography, Spacing, Borders & Shadows, Breakpoints
+
+## Component Library
+- Component name, Node ID, Purpose, Variants, States, Props, Composition, Design Tokens Used, Responsive Behavior, Code Connect status
+
+## Component States Analysis
+- Default, Hover, Active, Focus, Disabled states for each component
+
+## Responsive Design Analysis
+- Breakpoint table, component adaptations, touch vs mouse
+
+## Accessibility Considerations
+- Color contrast, text sizing, focus indicators, ARIA labels, touch targets, keyboard navigation
+```
+
+### 7.3 Figma Node References
+- **Always include Figma Node IDs**: Links design to implementation
+- **Example**: `Node ID: 1599:15684`
+- **Hover States**: Document hover state node IDs separately (e.g., `1324:23540`)
+
+### 7.4 Accepted Deviations
+When implementation differs from Figma design:
+- **Document in `docs/claudisms/`**: Create `{topic}-decision.md`
+- **Rationale Required**: Explain why deviation is necessary
+- **Examples**: "Goal" vs "Story Link" terminology, touch target enhancements
+
+---
+
+## 8. Hover States and Interactions
+
+### 8.1 Hover State Patterns (from Figma)
+- **Navigation/Secondary buttons**: `bg-neutral-100` (#f5f5f5) background on hover
+- **Primary buttons**: 10% white overlay gradient on dark background
+  ```tsx
+  hover:bg-[linear-gradient(90deg,rgba(255,255,255,0.1)_0%,rgba(255,255,255,0.1)_100%),linear-gradient(90deg,rgb(15,23,42)_0%,rgb(15,23,42)_100%)]
+  ```
+- **Icon buttons**: `bg-neutral-100` background on hover
+- **Links**: Color change (muted → foreground)
+
+### 8.2 Interaction States
+- **Default**: Base styling from Figma
+- **Hover**: Light background or gradient overlay
+- **Focus**: 2px outline, 2px offset (see accessibility rules)
+- **Active/Pressed**: Slightly darker than hover (if not defined in Figma, use hover + 10% darker)
+- **Disabled**: `opacity-50`, `cursor-not-allowed`
+
+### 8.3 Animation Guidelines
+- **Transitions**: Use `transition-all` or `transition-colors` for smooth state changes
+- **Duration**: 150-200ms for hover, 300ms for layout changes
+- **Easing**: `ease-in-out` for balanced feel
+- **Reduced Motion**: Respect `prefers-reduced-motion` (already in globals.css)
+
+---
+
+## 9. Best Practices
+
+### 9.1 Design Token Workflow
+1. **Check Figma first**: Always verify design values before implementing
+2. **Use existing tokens**: Reuse spacing/color tokens before creating new ones
+3. **Document new tokens**: Add to globals.css and design analysis documentation
+4. **Update mapping**: Keep Figma-to-CSS mapping accurate in documentation
+
+### 9.2 Component Development
+1. **Start with shadcn/ui**: Check if component exists before building custom
+2. **Apply design tokens**: Use CSS variables and design tokens exclusively
+3. **Test responsively**: Verify all breakpoints (360px, 768px, 1440px)
+4. **Document deviations**: If implementation differs from Figma, document why
+
+### 9.3 Quality Checks
+- [ ] All colors use OKLCH values from globals.css
+- [ ] All spacing uses design token values
+- [ ] Typography matches Figma specifications
+- [ ] Hover states match Figma hover state designs
+- [ ] Responsive breakpoints tested at 360px, 768px, 1440px
+- [ ] Touch targets meet 44×44px minimum
+- [ ] Design analysis document updated
+
+### 9.4 Common Pitfalls to Avoid
+- ❌ Hardcoding hex colors instead of using CSS variables
+- ❌ Using arbitrary spacing values (e.g., `p-3` instead of `p-4`)
+- ❌ Creating custom components that duplicate shadcn/ui
+- ❌ Forgetting to document Figma node IDs
+- ❌ Implementing desktop-only designs without mobile considerations
+- ❌ Skipping hover state definitions
+
+---
+
+## 10. Maintenance and Updates
+
+### 10.1 When Figma Changes
+1. Update CSS variables in `app/globals.css`
+2. Update design analysis documentation
+3. Test affected components for breaking changes
+4. Update this rules document if patterns change
+
+### 10.2 Adding New Components
+1. Review Figma design and extract design tokens
+2. Create design analysis document
+3. Implement using shadcn/ui primitives
+4. Apply design tokens via CSS variables
+5. Test responsively across all breakpoints
+6. Document any accepted deviations
+
+### 10.3 Design System Evolution
+- **Versioning**: Track major design system changes in documentation
+- **Migration**: Create migration guides when design tokens change significantly
+- **Communication**: Update team when design patterns evolve
+
+---
+
+## Resources
+
+- [Figma Design Files](https://www.figma.com/design/wnIZMZLYKc8LT7MpANvPVy/App-Designs)
+- [Design Token Documentation](../docs/claudisms/design-tokens-usage.md)
+- [Tailwind CSS v4 Documentation](https://tailwindcss.com/docs)
+- [shadcn/ui Components](https://ui.shadcn.com)
+- [OKLCH Color Picker](https://oklch.com)
