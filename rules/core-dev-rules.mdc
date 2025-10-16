@@ -19,7 +19,7 @@ Do not affirm my statements or assume my conclusions are correct. Question assum
 
 ## CODING STANDARDS
 
-- Plan before coding, explain reasoning for complex suggestions
+- Plan before coding
 - No code comments - write self-explanatory code
 - Keep imports alphabetically sorted
 - Keep code SOLID but simple - separation of concerns without over-engineering  

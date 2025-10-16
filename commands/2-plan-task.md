@@ -3,18 +3,23 @@ description:
 globs:
 alwaysApply: true
 ---
-"do pla; Create a detailed implementation plan for [TASK_ID] as specified in task-[N].md from story [STORY_ID].
+"do pla; Create a concise implementation plan for [TASK_ID] as specified in task-[N].md from story [STORY_ID].
 
-INTENTION: This plan will serve as the initial blueprint that will be validated and refined 
-during the task implementation cycle's planning phase (`do pla`).
+INTENTION: Generate a focused, actionable plan that can be immediately executed without extensive refinement.
 
-Using the user-story-prompt.md template, create task-[N]-plan.md that includes:
-1. Implementation approach and technical rationale
-2. File structure and component design specific to this task
-3. Step-by-step implementation checklist
-4. Testing strategy and verification criteria
-5. Integration points with previous and subsequent tasks
-6. Risk assessment and mitigation strategies
+Create task-[N]-plan.md with this structure:
 
-This initial plan should be comprehensive but may require refinement during the 
-implementation cycle's research and planning phases based on actual codebase analysis."
+## 1. Issue
+- Clear statement of what needs to be implemented
+
+## 2. Solution  
+- High-level approach and technical rationale
+
+## 3. Implementation Steps
+1. [Specific action with file paths and function names]
+2. [Continue with numbered steps...]
+
+## 4. Verification
+- Key requirements to validate implementation
+
+Keep the plan concise and actionable. Each step should be specific enough that no creative decisions are needed during execution."
