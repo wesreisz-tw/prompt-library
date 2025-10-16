@@ -103,6 +103,41 @@ const ERROR_INVALID_INPUT = "Invalid input"
 - **Minimize `'use client'`**: Only use client components when you need interactivity, browser APIs, or React hooks like `useState`, `useEffect`
 - **Data Fetching**: Use the native `fetch` API within Server Components and Route Handlers. Next.js's built-in caching (`'force-cache'`) and revalidation (`revalidate: N`) work seamlessly with it.
 - **Parallel Data Fetching**: Initiate all necessary `fetch` calls in parallel at the top of a component to prevent data-fetching waterfalls
+- **Runtime Secrets & Dynamic Rendering**: When pages depend on runtime environment variables (e.g., secrets injected by cloud platforms), use `export const dynamic = 'force-dynamic'` to prevent static generation at build time
+
+**Runtime Configuration Pattern**:
+
+When deploying to cloud platforms where secrets are injected at runtime (e.g., GCP Secret Manager, AWS Secrets Manager), pages that depend on those secrets must be server-rendered on-demand rather than statically generated at build time.
+
+**Problem**: 
+- Build time: Secrets are not available → Static generation fails or produces pages without data
+- Runtime: Secrets are injected → Pages need to fetch data with valid credentials
+
+**Solution**:
+```typescript
+// app/page.tsx
+export const dynamic = 'force-dynamic'
+
+export default function HomePage() {
+  // Component that fetches data using runtime secrets
+}
+```
+
+**When to Use**:
+- Pages that fetch data from external services requiring authentication (APIs, CMSs, databases)
+- Layouts with server components that fetch data using runtime credentials (e.g., Header/Footer from CMS)
+- Any page where environment variables contain secrets injected by the deployment platform
+
+**Effect**:
+- ✅ Build succeeds without secrets present
+- ✅ Pages render on each request when secrets are available
+- ✅ API clients get valid credentials from runtime environment
+- ✅ No static generation attempts during build
+
+**Alternative Approaches** (use when appropriate):
+- `export const revalidate = 0` - Similar effect, but different semantics
+- Using `cookies()` or `headers()` in component - Automatically makes page dynamic
+- `searchParams` prop - Makes page dynamic automatically
 
 ### 3.3 Custom Hooks
 - **Separate Concerns**: Custom hooks should contain business logic, data fetching, or state management. Components should focus on UI logic and rendering.
