@@ -47,3 +47,21 @@ automatically; however, we've seen cases where this does not happen.
 - **Quality** - Battle-tested rules based on industry best practices  
 - **Efficiency** - Reusable templates reduce prompt engineering overhead
 - **Maintainability** - Centralized rules that evolve with your practices
+
+### MCP Commands
+- `6-analyze-design-requirements`: This command leverages the mcp server for figma to interrogate the designs
+- `7-fetch-jira-story`: This command leverages the jira mcp server to install the mcp server.
+
+
+### MCP Server Configuration:
+```{
+  "mcpServers": {
+    "Figma": {
+      "url": "https://mcp.figma.com/mcp",
+      "headers": {}
+    },
+    "Atlassian-MCP-Server": {
+      "url": "https://mcp.atlassian.com/v1/sse"
+    }
+  }
+}
