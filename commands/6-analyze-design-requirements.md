@@ -5,6 +5,8 @@ alwaysApply: false
 ---
 "do fa; Analyze the Figma design file at [FIGMA_LINK] using Figma MCP servers to extract comprehensive implementation requirements.
 
+Follow the rules in ../rules/design-system.mdc
+
 INTENTION: Transform visual designs into actionable technical specifications by systematically 
 analyzing design tokens, components, states, interactions, and responsive behavior. This analysis 
 will serve as the foundation for accurate implementation that matches design intent.
