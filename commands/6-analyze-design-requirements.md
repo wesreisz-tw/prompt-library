@@ -43,6 +43,13 @@ Using the Figma MCP server connection, perform the following analysis:
    - Document component properties and their accepted values
    - For each component, note which design tokens/variables it uses
    - Cross-reference with existing codebase components (via Code Connect)
+   
+   **CRITICAL: Check for applicable shadcn/ui components**:
+   - For EACH component in the design, evaluate if a shadcn component exists
+   - Common shadcn components: Card, Button, Input, Textarea, Form, Dialog, Drawer, Select, Skeleton, etc.
+   - **DEFAULT TO SHADCN**: If a shadcn component exists, plan to use it with className customization
+   - Document: "Shadcn Component Mapping" section for each component
+   - Only skip shadcn if there's a technical incompatibility (rare)
 
 3. COMPONENT STATES ANALYSIS
    - Default state
@@ -163,6 +170,11 @@ For each component, document which design tokens it uses for future reusability.
   - Animations: (list Figma variable names, e.g., `animation/duration/fast`)
 - **Responsive Behavior**: 
 - **Code Connect**: (if component already exists in codebase, note the mapping)
+- **Shadcn Component Mapping**: 
+  - Check if shadcn component exists (Card, Button, Skeleton, etc.)
+  - If YES: Document which shadcn component(s) to use and how to customize
+  - If NO: Document why custom implementation is needed
+  - Installation required: Note if `npx shadcn@latest add [component]` is needed
 
 Example:
 ### Button Component
