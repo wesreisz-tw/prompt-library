@@ -5,84 +5,90 @@ alwaysApply: false
 ---
 "do fas; Generate an AEM Content Fragment Model implementation guide for [STORY_ID].
 
-INTENTION: Transform story requirements into step-by-step AEM authoring instructions that enable content authors to create and configure CFMs correctly. Analyze existing models for reuse opportunities and provide clear, actionable implementation steps.
+INTENTION: Transform story requirements into actionable AEM authoring instructions. Analyze existing models for reuse, provide copy-pastable field specifications, and include only essential information.
+
+CONTEXT FILES TO REFERENCE:
+- docs/aem/content-fragment-models.md (existing models)
+- docs/aem/aem-authoring-quick-reference.md (naming conventions and path patterns)
+- lib/aem/constants.ts (actual paths in use)
 
 PROCESS:
 
-1. Read specifications/[STORY_ID]/story.md and extract all content structure requirements
+1. Read specifications/[STORY_ID]/story.md and extract content structure requirements
 2. Review docs/aem/content-fragment-models.md to identify reusable models
-3. For each field requirement, determine if it should use an existing model (Fragment Reference) or be a new field
-4. Apply AEM best practices: prefer Fragment References for reusable concepts (images, links, rich text)
-5. If ambiguous whether to reuse an existing model, ask the user interactively
-6. Recommend folder structure following /content/dam/dceo/ patterns
-7. For accessibility fields, ensure images have altText and interactive elements have proper labels
+3. For each field, determine: existing model reference OR new field
+4. Apply reusability best practice: Fragment References for shared content (images, links, rich text)
+5. If ambiguous whether to reuse, ask user interactively
+6. Use path pattern: /content/dam/soi/en/web/dceo/businesssuccessportal/{type-plural}/
+7. Ensure accessibility: images need altText, interactive elements need labels
 
 OUTPUT FORMAT:
 
-Create specifications/[STORY_ID]/[STORY_ID]-AEM-CFM-GUIDE.md with:
+Create specifications/[STORY_ID]/[STORY_ID]-AEM-CFM-GUIDE.md with these sections:
 
-# AEM Content Fragment Model Implementation Guide
-## Story: [STORY_ID]
+## Executive Summary
+Brief overview with counts: new models, reused models, fragments needed, estimated time
 
-### Executive Summary
-- Number of new models to create
-- Existing models to reuse
-- Number of content fragments needed
-- Estimated setup time
+## 1. Model Reuse Analysis
+Tables only:
+- Existing models to reuse (model name, purpose, rationale)
+- New models to create (model name, purpose, rationale)
+- Include any design decisions that need confirmation
 
-### 1. Model Reuse Analysis
-Tables showing which existing models to use and why, which new models to create and why
+## 2. Folder Structure
+Paths using /content/dam/soi/en/web/dceo/businesssuccessportal/ pattern with brief rationale
 
-### 2. Folder Structure Setup
-- Model configuration paths (/conf/dceo/settings/dam/cfm/models/)
-- Content storage paths (/content/dam/dceo/)
-- Rationale for organization
-
-### 3. Model Creation Instructions
+## 3. Model Creation Instructions
 For each new model:
-- Configuration path and description
-- Step-by-step AEM navigation instructions
-- For each field, provide boxed specifications with:
-  * Field Label and Property Name
-  * Field Type (Single line text, Fragment Reference, etc.)
-  * Required/Optional
-  * Description for AEM UI
-  * Validation rules (character limits, patterns, etc.)
-  * Default values
-  * Help text for authors
-  * Explanation of why this field type/approach was chosen
 
-### 4. Content Fragment Creation
-- Ordered steps (create dependencies first)
-- Specific fragment names and field values based on story
-- Location recommendations
+### Model Name: [ModelName]
+**Path**: /conf/dceo/settings/dam/cfm/models/[kebab-case]
+**Description**: [Single sentence - copy-pastable to AEM]
 
-### 5. GraphQL Query Reference
-- Example query the frontend will use
-- Expected response structure
+**Fields**:
+| Field Label | Property Name | Type | Required | Validation (Regex) | Validation Notes | Description (for AEM) |
+|-------------|---------------|------|----------|-------------------|-----------------|----------------------|
+| [Label] | [camelCase] | [AEM type] | Yes/No | [regex pattern only] | [What regex does] | [Copy-paste to AEM description field] |
 
-### 6. Testing Checklist
-- AEM author environment validation
-- GraphQL testing steps
-- Frontend integration checks
-- Accessibility verification
-- Responsive testing
+Notes:
+- Validation (Regex) column: copy-paste directly into AEM validation field - no explanatory text
+- Validation Notes: human-readable explanation of validation rule
+- Leave Validation columns empty if no validation needed
 
-### 7. Common Issues & Solutions
-- Typical problems authors might encounter
-- Clear resolution steps
+**Field Details** (only if type needs explanation):
+- [fieldName]: Why [Type] - brief rationale
 
-### 8. Maintenance Notes
-- How to update content later
-- Reordering content
-- Future extensibility considerations
+Keep model instructions concise - one table per model, field details only when non-obvious
 
-### 9. Acceptance Criteria Validation
-- Map back to story acceptance criteria with checkboxes
+## 4. Content Fragment Creation
+Ordered steps (dependencies first). Use tables for multiple similar fragments:
 
-### 10. Next Steps
-- Post-implementation actions
-- Estimated time breakdown
+| Fragment Name | Field 1 | Field 2 | Field 3 |
+|---------------|---------|---------|---------|
+| [name] | [value] | [value] | [value] |
 
-Keep instructions clear for users with minimal AEM experience. Use visual formatting (boxes, tables, numbered lists) for clarity."
+Include only: fragment names, field values, locations. Skip step-by-step AEM UI navigation.
+
+## 5. GraphQL Query Reference
+Query the frontend will use with expected response structure (abbreviated with comments)
+
+## 6. Testing Checklist
+Single consolidated checklist covering: AEM validation, GraphQL, frontend integration, accessibility, responsive
+Limit to 10-15 most critical items
+
+## 7. Common Issues (Top 3 Only)
+Most likely problems with quick solutions
+
+## 8. Acceptance Criteria Validation
+Map story acceptance criteria to implementation with checkboxes
+
+CONCISENESS GUIDELINES:
+- Use tables wherever possible instead of prose
+- Field specifications: essential info only (Label, Property, Type, Required, Validation, Description)
+- Descriptions must be copy-pastable directly into AEM
+- Skip AEM UI navigation steps (authors know how to create fragments)
+- Limit common issues to 3 most critical
+- Testing checklist: 10-15 items max
+- No verbose explanations - bullet points and tables preferred
+- Omit sections 9-10 (Maintenance Notes, Next Steps) unless critical to story"
 
