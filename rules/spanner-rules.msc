@@ -1,0 +1,309 @@
+---
+description: Spanner DDL coding standards and best practices - DDL only, never DML
+globs: ["*.sql", "**/migrations/*.sql"]
+alwaysApply: false
+---
+
+# Spanner Rules
+
+## Critical Rules
+
+### DDL ONLY - NEVER USE DML
+
+**MANDATORY**: All migrations must use **DDL (Data Definition Language) only**.
+
+**ALLOWED DDL Operations**:
+- `CREATE TABLE`, `ALTER TABLE`, `DROP TABLE`
+- `CREATE INDEX`, `DROP INDEX`
+- `DROP PROPERTY GRAPH`, `CREATE OR REPLACE PROPERTY GRAPH`
+- `RENAME COLUMN`
+
+**FORBIDDEN DML Operations**:
+- ❌ `INSERT`, `UPDATE`, `DELETE`, `MERGE`, `UPSERT`
+
+**Rationale**: Migrations change schema structure only. Data migration is handled separately via application scripts (`reset_graph.py`, `migrate_plans_to_graph.py`).
+
+---
+
+## Migration File Standards
+
+### Naming Convention
+```
+<version>_<description>.sql
+```
+- 3-digit sequential version numbers (001, 002, 010, etc.)
+- Lowercase with underscores for description
+- One logical change per migration
+
+### Required Header
+```sql
+-- =============================================================================
+-- MIGRATION <number>: <Clear Title>
+-- =============================================================================
+-- Purpose: <One sentence describing what this migration does>
+-- Breaking Change: Yes/No
+-- Prerequisites: <Migration number> must be applied (if applicable)
+-- =============================================================================
+```
+
+---
+
+## Property Graph Management
+
+**Always follow this pattern when modifying tables that are part of a property graph**:
+
+1. **Drop property graph first** (required before altering tables)
+2. **Make table structure changes** (ALTER TABLE, etc.)
+3. **Recreate property graph** with updated schema
+
+```sql
+-- Step 1: Drop property graph
+DROP PROPERTY GRAPH IF EXISTS CredentialsGraph;
+
+-- Step 2: Alter tables
+ALTER TABLE Credential 
+  ADD COLUMN a_display_name STRING(MAX) AS (normalized_name) STORED;
+
+-- Step 3: Recreate property graph
+CREATE OR REPLACE PROPERTY GRAPH CredentialsGraph
+  NODE TABLES (
+    Credential
+      KEY (credential_id)
+      LABEL Credential
+      PROPERTIES (
+        a_display_name,  -- New property
+        credential_id,
+        normalized_name
+      )
+  )
+  -- ... edge tables
+);
+```
+
+### Property Ordering
+- Properties are sorted alphabetically by Spanner Studio
+- Use `a_` prefix for properties that should display first (e.g., `a_display_name`)
+- Avoid `_` prefix (reserved by Spanner)
+- Place important display properties first in PROPERTIES list
+
+### a_display_name Pattern
+
+**Use `a_display_name` generated columns for meaningful node labels in Spanner Studio.**
+
+**Problem**: Spanner Studio displays nodes using the alphabetically-first property, which often results in unintuitive labels (e.g., `created_at` instead of meaningful names).
+
+**Solution**: Add `a_display_name` generated column that maps to the most meaningful identifier for each node type.
+
+**Pattern**:
+```sql
+-- Step 1: Drop property graph
+DROP PROPERTY GRAPH IF EXISTS CredentialsGraph;
+
+-- Step 2: Add generated columns to node tables
+ALTER TABLE Credential 
+  ADD COLUMN a_display_name STRING(MAX) AS (normalized_name) STORED;
+
+ALTER TABLE Jurisdiction 
+  ADD COLUMN a_display_name STRING(MAX) AS (jurisdiction_name) STORED;
+
+ALTER TABLE Intent 
+  ADD COLUMN a_display_name STRING(MAX) AS (query) STORED;
+
+-- Step 3: Recreate property graph with a_display_name as first property
+CREATE OR REPLACE PROPERTY GRAPH CredentialsGraph
+  NODE TABLES (
+    Credential
+      KEY (credential_id)
+      LABEL Credential
+      PROPERTIES (
+        a_display_name,  -- Sorts first alphabetically
+        credential_id,
+        normalized_name
+      )
+    -- ... other node tables
+  )
+  -- ... edge tables
+);
+```
+
+**Mapping Guide**:
+- **Credential**: `a_display_name` → `normalized_name`
+- **Jurisdiction**: `a_display_name` → `jurisdiction_name`
+- **Intent**: `a_display_name` → `query`
+
+**Why `a_` prefix?**
+- `a_` sorts first alphabetically (before `created_at`, `business_structure`, etc.)
+- `_` prefix is reserved by Spanner (cannot use `_display_name`)
+- Ensures `a_display_name` appears as the default node label in Spanner Studio
+
+---
+
+## Generated Columns
+
+**Use generated columns for derived values**:
+
+```sql
+ALTER TABLE Credential 
+  ADD COLUMN a_display_name STRING(MAX) AS (normalized_name) STORED;
+```
+
+**Key Points**:
+- Use `AS (expression) STORED` syntax
+- Values computed automatically for existing and future rows
+- No DML needed - values populate automatically
+- Cannot use non-deterministic functions (e.g., `CURRENT_TIMESTAMP()`)
+
+---
+
+## Table Alterations
+
+### Adding Columns
+Always specify data type, NULL/NOT NULL, and options:
+
+```sql
+ALTER TABLE Credential 
+  ADD COLUMN expiration_date DATE;
+
+ALTER TABLE Intent 
+  ADD COLUMN raw_created_at TIMESTAMP 
+  OPTIONS (allow_commit_timestamp=true);
+```
+
+### Dropping Columns/Tables
+Always use `IF EXISTS` for safety:
+
+```sql
+DROP INDEX IF EXISTS idx_credential_expiration;
+DROP TABLE IF EXISTS OldTable;
+ALTER TABLE Credential DROP COLUMN IF EXISTS old_column;
+```
+
+### Column Renaming
+- Use `RENAME COLUMN` (metadata-only, instant operation)
+- Preserves constraints (NOT NULL, etc.)
+- Cannot be rolled back
+
+```sql
+ALTER TABLE Credential 
+  RENAME COLUMN first_seen_at TO created_at;
+```
+
+---
+
+## Index Management
+
+### Naming Convention
+- Use `idx_` prefix followed by table and column names
+- Create indexes for frequently queried columns
+
+```sql
+CREATE INDEX idx_credential_normalized_name 
+  ON Credential(normalized_name);
+
+CREATE INDEX idx_credential_jurisdiction_type
+  ON Credential(jurisdiction_name, credential_type);
+```
+
+### Composite Index Ordering
+- Order by selectivity (most selective first)
+- Equality columns before range columns
+
+---
+
+## Data Migration Separation
+
+**Critical**: Data migration is handled separately from schema migrations.
+
+**Schema Migration (DDL)**: 
+- Changes table structure (handled in migration files)
+
+**Data Migration**: 
+- Handled via application scripts:
+  - `research_tools/reset_graph.py` - Reset/clear graph data
+  - `research_tools/migrate_plans_to_graph.py` - Re-extract plans
+
+**Workflow**:
+1. Apply DDL migration (schema changes only)
+2. Optionally reset graph data: `python research_tools/reset_graph.py`
+3. Optionally re-extract plans: `python research_tools/migrate_plans_to_graph.py --status completed`
+
+**Never mix DDL and data migration in the same file.**
+
+---
+
+## Timestamp Standards
+
+**Standard timestamp fields**:
+- `raw_created_at` - Original timestamp from source system
+- `created_at` - When entity was created in Spanner
+- `updated_at` - When entity was last modified
+
+```sql
+ALTER TABLE Credential 
+  ADD COLUMN raw_created_at TIMESTAMP 
+  OPTIONS (allow_commit_timestamp=true);
+
+ALTER TABLE Credential 
+  ADD COLUMN created_at TIMESTAMP NOT NULL 
+  OPTIONS (allow_commit_timestamp=true);
+```
+
+---
+
+## Anti-Patterns
+
+❌ **DON'T**: Mix DDL and DML
+```sql
+-- ❌ BAD
+ALTER TABLE Credential ADD COLUMN new_field STRING(100);
+INSERT INTO Credential (credential_id, new_field) VALUES ('id', 'value');
+```
+
+❌ **DON'T**: Modify tables without dropping property graph first
+```sql
+-- ❌ BAD
+ALTER TABLE Credential ADD COLUMN new_field STRING(100);
+-- Property graph will fail - table structure changed
+```
+
+❌ **DON'T**: Use DML to populate generated columns
+```sql
+-- ❌ BAD: Generated columns populate automatically
+ALTER TABLE Credential ADD COLUMN a_display_name STRING(MAX) AS (normalized_name) STORED;
+UPDATE Credential SET a_display_name = normalized_name;  -- Unnecessary!
+```
+
+❌ **DON'T**: Create migrations with multiple unrelated changes
+```sql
+-- ❌ BAD: Migration does three different things
+-- Create separate migrations
+```
+
+❌ **DON'T**: Edit applied migrations
+```sql
+-- ❌ BAD: Once migration is applied, don't edit it
+-- Create a new migration instead
+```
+
+---
+
+## Checklist
+
+Before creating a migration, verify:
+
+- [ ] Migration uses **DDL only** (no INSERT/UPDATE/DELETE)
+- [ ] Migration file follows naming convention (`<version>_<description>.sql`)
+- [ ] Migration includes proper header comment block
+- [ ] Migration represents one logical change
+- [ ] Property graph is dropped before table alterations (if applicable)
+- [ ] Property graph is recreated after table alterations (if applicable)
+- [ ] Generated columns use `AS (expression) STORED` syntax
+- [ ] All DROP operations use `IF EXISTS`
+- [ ] Indexes have descriptive names with `idx_` prefix
+- [ ] Data migration is handled separately (not in migration file)
+- [ ] Migration tested on development database first
+
+---
+
+**Remember**: Migrations are structural changes only. Data changes are handled separately via application scripts.
+
