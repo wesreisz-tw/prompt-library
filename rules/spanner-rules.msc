@@ -88,11 +88,13 @@ CREATE OR REPLACE PROPERTY GRAPH CredentialsGraph
 
 ### a_display_name Pattern
 
-**Use `a_display_name` generated columns for meaningful node labels in Spanner Studio.**
+**Use `a_display_name` generated columns ONLY for display purposes in Spanner Studio.**
+
+**CRITICAL**: `a_display_name` is **display-only**. Do NOT use it in queries or application logic. Use the actual property name (e.g., `name` for Credential, `query` for Intent) for queries.
 
 **Problem**: Spanner Studio displays nodes using the alphabetically-first property, which often results in unintuitive labels (e.g., `created_at` instead of meaningful names).
 
-**Solution**: Add `a_display_name` generated column that maps to the most meaningful identifier for each node type.
+**Solution**: Add `a_display_name` generated column that maps to the most meaningful identifier for each node type. This ensures nodes display with meaningful names in Spanner Studio.
 
 **Pattern**:
 ```sql
@@ -101,7 +103,7 @@ DROP PROPERTY GRAPH IF EXISTS CredentialsGraph;
 
 -- Step 2: Add generated columns to node tables
 ALTER TABLE Credential 
-  ADD COLUMN a_display_name STRING(MAX) AS (normalized_name) STORED;
+  ADD COLUMN a_display_name STRING(MAX) AS (name) STORED;
 
 ALTER TABLE Jurisdiction 
   ADD COLUMN a_display_name STRING(MAX) AS (jurisdiction_name) STORED;
@@ -116,9 +118,9 @@ CREATE OR REPLACE PROPERTY GRAPH CredentialsGraph
       KEY (credential_id)
       LABEL Credential
       PROPERTIES (
-        a_display_name,  -- Sorts first alphabetically
+        a_display_name,  -- Display-only, sorts first alphabetically
         credential_id,
-        normalized_name
+        name  -- Use this for queries, not a_display_name
       )
     -- ... other node tables
   )
@@ -127,14 +129,20 @@ CREATE OR REPLACE PROPERTY GRAPH CredentialsGraph
 ```
 
 **Mapping Guide**:
-- **Credential**: `a_display_name` → `normalized_name`
-- **Jurisdiction**: `a_display_name` → `jurisdiction_name`
-- **Intent**: `a_display_name` → `query`
+- **Credential**: `a_display_name` → `name` (display only), use `name` for queries
+- **Jurisdiction**: `a_display_name` → `jurisdiction_name` (display only), use `jurisdiction_name` for queries
+- **Intent**: `a_display_name` → `query` (display only), use `query` for queries
 
 **Why `a_` prefix?**
 - `a_` sorts first alphabetically (before `created_at`, `business_structure`, etc.)
 - `_` prefix is reserved by Spanner (cannot use `_display_name`)
 - Ensures `a_display_name` appears as the default node label in Spanner Studio
+
+**Query Guidelines**:
+- ✅ Use `name` for Credential queries: `WHERE c.name = @name`
+- ❌ Do NOT use `a_display_name` for queries: `WHERE c.a_display_name = @name` (wrong)
+- ✅ Include `a_display_name` in PROPERTIES for visualization
+- ✅ Include actual property (`name`) in PROPERTIES for querying
 
 ---
 
