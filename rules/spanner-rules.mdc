@@ -177,14 +177,42 @@ ALTER TABLE Intent
   OPTIONS (allow_commit_timestamp=true);
 ```
 
-### Dropping Columns/Tables
-Always use `IF EXISTS` for safety:
+### Dropping Columns, Tables, and Indexes
+
+**CRITICAL**: Spanner has different `IF EXISTS` support depending on the DROP operation.
+
+#### ✅ Statements that Support `IF EXISTS`:
 
 ```sql
-DROP INDEX IF EXISTS idx_credential_expiration;
+-- Tables
 DROP TABLE IF EXISTS OldTable;
+
+-- Indexes
+DROP INDEX IF EXISTS idx_credential_expiration;
+
+-- Property Graphs
+DROP PROPERTY GRAPH IF EXISTS CredentialsGraph;
+```
+
+#### ❌ Statements that DO NOT Support `IF EXISTS`:
+
+```sql
+-- Columns - NO IF EXISTS support (causes syntax error)
+ALTER TABLE Credential DROP COLUMN old_column;
+
+-- ❌ WRONG: This will fail with syntax error
 ALTER TABLE Credential DROP COLUMN IF EXISTS old_column;
 ```
+
+**Why No `IF EXISTS` for DROP COLUMN?**
+- Spanner requires explicit verification before dropping columns
+- If column doesn't exist, migration fails with clear error (safe failure)
+- Forces developers to document and verify prerequisites
+
+**Best Practice**:
+- Document prerequisites in migration header
+- Verify column exists before applying migration
+- Safe failure is better than silent success
 
 ### Column Renaming
 - Use `RENAME COLUMN` (metadata-only, instant operation)
@@ -293,6 +321,15 @@ UPDATE Credential SET a_display_name = normalized_name;  -- Unnecessary!
 -- Create a new migration instead
 ```
 
+❌ **DON'T**: Use `IF EXISTS` with DROP COLUMN
+```sql
+-- ❌ BAD: Causes syntax error in Spanner
+ALTER TABLE Intent DROP COLUMN IF EXISTS query;
+
+-- ✅ GOOD: Correct syntax
+ALTER TABLE Intent DROP COLUMN query;
+```
+
 ---
 
 ## Checklist
@@ -306,7 +343,8 @@ Before creating a migration, verify:
 - [ ] Property graph is dropped before table alterations (if applicable)
 - [ ] Property graph is recreated after table alterations (if applicable)
 - [ ] Generated columns use `AS (expression) STORED` syntax
-- [ ] All DROP operations use `IF EXISTS`
+- [ ] `IF EXISTS` used only where supported (DROP TABLE, DROP INDEX, DROP PROPERTY GRAPH)
+- [ ] `IF EXISTS` NOT used with DROP COLUMN (causes syntax error)
 - [ ] Indexes have descriptive names with `idx_` prefix
 - [ ] Data migration is handled separately (not in migration file)
 - [ ] Migration tested on development database first
