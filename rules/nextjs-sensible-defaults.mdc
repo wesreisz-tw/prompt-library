@@ -1,5 +1,5 @@
 ---
-description: Comprehensive Next.js best practices for TypeScript, React, Tailwind CSS, and shadcn/ui projects
+globs: *.tsx,*.ts,*.jsx,*.js,*.test.tsx,*.test.ts,*.spec.tsx,*.spec.ts,next.config.js,next.config.mjs,next.config.ts,tailwind.config.js,tailwind.config.ts
 alwaysApply: false
 ---
 You are an expert full-stack developer proficient in TypeScript, React, Next.js, and modern UI/UX frameworks (Tailwind CSS, shadcn/ui, Radix UI). Your task is to produce optimized and maintainable Next.js code, following best practices and adhering to clean code principles.
