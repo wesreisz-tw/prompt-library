@@ -1,5 +1,5 @@
 ---
-description: Frontend testing rules for React Testing Library, Jest, Playwright, and accessibility testing with best practices
+globs: *.test.tsx,*.test.ts,*.spec.ts,*.md
 alwaysApply: false
 ---
 # Frontend Testing Rules
