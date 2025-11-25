@@ -1,0 +1,283 @@
+# AI Agent Troubleshooting Rules
+
+> **Note:** This file contains generic troubleshooting guidelines. Commands and paths should be adapted to your specific project stack (Node.js, Python, Java, etc.).
+
+## Core Principle
+**When the user says something worked before, BELIEVE THEM.** Don't argue or try to prove it was already broken. Start from the assumption that recent changes introduced the problem.
+
+---
+
+## CRITICAL: Environment Verification (Always Do This First)
+
+Before investigating ANY test failure or unexpected behavior, ALWAYS verify the environment:
+
+### 1. Check for Running Processes
+```bash
+# Kill dev servers/background processes on common ports
+lsof -ti:3000 | xargs kill -9 2>/dev/null  # HTTP servers
+lsof -ti:5432 | xargs kill -9 2>/dev/null  # PostgreSQL
+lsof -ti:6379 | xargs kill -9 2>/dev/null  # Redis
+lsof -ti:8080 | xargs kill -9 2>/dev/null  # Alt HTTP port
+
+# Check for project-specific background processes
+ps aux | grep "<project-dev-command>"  # e.g. "npm run dev", "gradle run", "rails server"
+```
+
+### 2. Clear All Caches
+```bash
+# Framework build caches
+rm -rf .next           # Next.js
+rm -rf dist build out  # Common build directories
+rm -rf target          # Maven/Gradle
+rm -rf .gradle         # Gradle cache
+
+# Language/package manager caches
+rm -rf node_modules/.cache  # npm/yarn
+rm -rf .pytest_cache        # Python pytest
+rm -rf __pycache__          # Python bytecode
+rm -rf vendor               # PHP/Ruby
+
+# Test artifacts
+rm -rf playwright-report test-results     # Playwright
+rm -rf cypress/screenshots cypress/videos # Cypress
+rm -rf coverage htmlcov                   # Coverage reports
+```
+
+### 3. Verify Clean State
+```bash
+# Check git status
+git status
+
+# Verify no uncommitted changes affecting tests
+git diff
+
+# Check for untracked files that might interfere
+git status --porcelain
+```
+
+**Rule:** If tests fail after code changes, do steps 1-3 BEFORE investigating logic issues.
+
+---
+
+## Troubleshooting Decision Tree
+
+### When Tests Fail After Changes
+
+```
+Step 1: Did YOU just make changes?
+  YES → Assume YOUR changes broke it
+  NO  → Proceed to Step 2
+
+Step 2: Environment Check (see above)
+  - Kill processes on test ports
+  - Clear all caches
+  - Fresh build
+  - Run tests again
+
+Step 3: Still failing?
+  - Compare current code to last known working commit
+  - Identify what changed
+  - Isolate the specific change causing failure
+
+Step 4: Ask for clarification
+  - "When was the last time these tests passed?"
+  - "What changes were made since then?"
+  - Never assert tests were "already broken" without proof
+```
+
+---
+
+## Common Mistakes to Avoid
+
+### ❌ DON'T: Start Dev Servers During Test Troubleshooting
+**Why:** Tests will hit stale code on the running server instead of fresh builds.
+
+**Symptom:** Tests fail with errors that don't match the code you're looking at.
+
+**Fix:** Always kill servers before running tests.
+
+---
+
+### ❌ DON'T: Argue with User's Baseline
+**Bad Response:** "Actually, these tests were already failing on commit X..."
+
+**Why:** Even if true, it's not helpful and wastes time. The user knows their codebase better than you do.
+
+**Good Response:** "Let me verify the environment is clean and rebuild from scratch."
+
+---
+
+### ❌ DON'T: Jump to Complex Architectural Theories
+**Bad:** "The issue is the service mesh routing isn't propagating headers due to namespace isolation..."
+
+**Why:** You're probably overthinking it. Most failures are environmental (stale processes, cache, dependencies).
+
+**Good:** "Let me clear the cache and rebuild first, then we can investigate deeper if needed."
+
+---
+
+### ❌ DON'T: Make Multiple Changes While Server/Process is Running
+**Why:** Changes won't be reflected until process restart/rebuild.
+
+**Fix:** Kill process → Make changes → Rebuild/Restart → Test
+
+---
+
+### ❌ DON'T: Trust Cached Artifacts
+**Why:** Build artifacts, test results, and coverage reports can be stale.
+
+**Fix:** Delete build/test directories before re-running (see Environment Verification above).
+
+---
+
+## Best Practices
+
+### ✅ DO: Verify Clean Slate Before Every Test Run
+```bash
+# Standard pre-test cleanup (adapt to your project)
+# Kill processes on project ports
+lsof -ti:<PORT> | xargs kill -9 2>/dev/null
+
+# Clear build artifacts
+rm -rf <build-dir> <cache-dir>
+
+# Clear test artifacts  
+rm -rf <test-report-dir> <test-results-dir>
+
+# Example for Node/Next.js:
+# lsof -ti:3000 | xargs kill -9 2>/dev/null
+# rm -rf .next node_modules/.cache playwright-report test-results
+
+# Example for Python/Django:
+# lsof -ti:8000 | xargs kill -9 2>/dev/null
+# rm -rf __pycache__ .pytest_cache htmlcov
+
+# Example for Java/Spring:
+# lsof -ti:8080 | xargs kill -9 2>/dev/null
+# rm -rf target build
+```
+
+### ✅ DO: Be Methodical, Not Defensive
+- Start with simplest explanation (environment)
+- Work up to complex explanations (architecture)
+- Accept when you're wrong quickly
+
+### ✅ DO: Trust the User's Baseline
+- If they say it worked yesterday, it worked yesterday
+- Focus on what changed since then
+- Don't try to prove them wrong
+
+### ✅ DO: Communicate What You're Checking
+**Good:** "Let me verify there are no stale processes and rebuild with a clean cache..."
+
+**Why:** Builds trust and shows systematic approach.
+
+---
+
+## Red Flags That Indicate Environment Issues
+
+🚩 Tests pass sometimes, fail other times (flaky)  
+🚩 Test failures don't match the code you're looking at  
+🚩 Error messages reference old code, file paths, or line numbers  
+🚩 Tests fail immediately after starting server/process  
+🚩 "Cannot find module/class/package" errors after dependency changes  
+🚩 Port already in use errors  
+🚩 "Address already in use" or "EADDRINUSE" errors  
+🚩 Connection refused errors when service should be running  
+🚩 Stale import errors after file moves/renames  
+
+**Action:** Stop debugging logic. Clean environment first.
+
+---
+
+## Testing Environment Checklist
+
+Before reporting "tests are broken":
+
+- [ ] Killed all processes on relevant ports
+- [ ] Cleared build caches (framework-specific)
+- [ ] Cleared test artifacts and reports
+- [ ] Fresh build completed successfully
+- [ ] No servers/services running from previous sessions
+- [ ] Dependencies are up to date (npm install, pip install, etc.)
+- [ ] Git status is clean (or changes are intentional)
+- [ ] Tests run in isolation (not against running dev server/services)
+- [ ] Database migrations are current (if applicable)
+- [ ] Environment variables are set correctly
+
+---
+
+## When to Ask for Help
+
+After you've:
+1. ✅ Verified clean environment (killed processes, cleared cache)
+2. ✅ Rebuilt from scratch
+3. ✅ Run tests in isolation
+4. ✅ Tests still fail consistently
+
+Then you can say: "The tests are failing consistently in a clean environment. Let me investigate the logic..."
+
+---
+
+## Remember
+
+**The user is your partner, not your adversary.** When they report something isn't working:
+- They're usually right
+- They know their codebase
+- They want to move forward, not debate
+
+Your job is to help, not to be right.
+
+---
+
+## Project-Specific Customization
+
+To adapt these rules for your project, identify:
+
+### Ports Your Project Uses
+- HTTP server: `____` (e.g., 3000, 8080, 8000)
+- Database: `____` (e.g., 5432 for PostgreSQL, 3306 for MySQL)
+- Cache/Queue: `____` (e.g., 6379 for Redis, 5672 for RabbitMQ)
+- Other services: `____`
+
+### Build Directories to Clear
+- Primary build output: `____` (e.g., `.next`, `dist`, `build`, `target`)
+- Cache directories: `____` (e.g., `node_modules/.cache`, `.gradle`, `__pycache__`)
+
+### Test Artifact Directories
+- Test reports: `____` (e.g., `playwright-report`, `coverage`, `htmlcov`)
+- Test results: `____` (e.g., `test-results`, `.pytest_cache`)
+
+### Dev Commands to Check
+- Dev server command: `____` (e.g., `npm run dev`, `python manage.py runserver`)
+- Background workers: `____` (e.g., `sidekiq`, `celery worker`)
+
+### Framework-Specific Notes
+Add any framework-specific gotchas here (e.g., "Django requires migrations after model changes", "Spring Boot requires ./gradlew clean after dependency updates").
+
+---
+
+## THIS PROJECT (bpp-web) Configuration
+
+### Ports
+- HTTP server: `3000`
+
+### Build Directories to Clear
+```bash
+rm -rf .next node_modules/.cache
+```
+
+### Test Artifact Directories
+```bash
+rm -rf playwright-report test-results coverage
+```
+
+### Dev Commands
+- Dev server: `npm run dev`
+- Integration tests: `npx playwright test playwright/integration --project=integration`
+- E2E tests: `npx playwright test playwright/e2e --project=e2e`
+
+### Framework Notes
+- **Next.js**: Must clear `.next` cache after significant code changes
+- **Playwright**: `webServer` config starts local server automatically - ensure no conflicting processes on port 3000
+- **MSW**: Enabled via `NEXT_PUBLIC_API_MOCKING=enabled` for integration tests
