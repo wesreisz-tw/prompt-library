@@ -21,5 +21,6 @@ Create task-[N]-plan.md with this structure:
 
 ## 4. Verification
 - Key requirements to validate implementation
+- **Test Gate**: If this task includes code changes, all existing unit tests MUST pass before execution is complete
 
 Keep the plan concise and actionable. Each step should be specific enough that no creative decisions are needed during execution."

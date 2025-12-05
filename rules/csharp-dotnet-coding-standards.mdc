@@ -1,5 +1,6 @@
 ---
 description: C# / .NET Core coding standards based on Microsoft's official conventions (2024)
+globs: *.cs,*.csproj
 alwaysApply: false
 ---
 # C# / .NET Core Coding Standards for Cursor IDE

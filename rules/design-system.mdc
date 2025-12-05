@@ -1,5 +1,6 @@
 ---
 description: Design system rules for Figma-driven development, design tokens, typography, and responsive patterns
+globs: *.tsx,*.jsx,*.css
 alwaysApply: false
 ---
 # Design System Rules

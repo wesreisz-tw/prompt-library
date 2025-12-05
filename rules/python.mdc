@@ -1,5 +1,6 @@
 ---
 description: "Python Style Guide - Modern Best Practices (2025)"
+globs: *.py
 alwaysApply: false
 ---
 # Python Development Style Guide (2025)

@@ -1,6 +1,7 @@
 ---
 description: Core cross language development rules
-alwaysApply: true
+globs: *
+alwaysApply: false
 ---
 
 # STRICT RULES
