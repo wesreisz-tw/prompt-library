@@ -25,6 +25,114 @@ alwaysApply: false
 
 ---
 
+## DEFAULT Value Syntax
+
+**CRITICAL**: Spanner requires parentheses around DEFAULT values.
+
+```sql
+-- ✅ CORRECT: Parentheses around default values
+version INT64 NOT NULL DEFAULT (1),
+publication_status STRING(20) NOT NULL DEFAULT ('DRAFT'),
+is_deleted BOOL NOT NULL DEFAULT (FALSE),
+
+-- ❌ WRONG: Missing parentheses causes syntax error
+version INT64 NOT NULL DEFAULT 1,
+publication_status STRING(20) NOT NULL DEFAULT 'DRAFT',
+is_deleted BOOL NOT NULL DEFAULT FALSE,
+```
+
+**Error Message**: `Syntax error: Expecting '(' but found '1'`
+
+---
+
+## Interleaved Table Syntax
+
+**CRITICAL**: Spanner interleaved tables require a **comma** before the INTERLEAVE clause.
+
+```sql
+-- ✅ CORRECT: Comma before INTERLEAVE
+CREATE TABLE IntentHistory (
+  intent_id STRING(36) NOT NULL,
+  version INT64 NOT NULL,
+  ...
+  PRIMARY KEY (intent_id, version)
+), INTERLEAVE IN PARENT Intent ON DELETE CASCADE;
+
+-- ❌ WRONG: Missing comma causes "Expecting 'EOF' but found 'INTERLEAVE'"
+CREATE TABLE IntentHistory (
+  ...
+  PRIMARY KEY (intent_id, version)
+) INTERLEAVE IN PARENT Intent ON DELETE CASCADE;
+```
+
+**Error Message**: `Syntax error: Expecting 'EOF' but found 'INTERLEAVE'`
+
+---
+
+## Filtered Index WHERE Clause Syntax
+
+**CRITICAL**: Spanner filtered indexes ONLY support NULL predicates in WHERE clauses.
+
+### Supported Predicates:
+- `column IS NULL`
+- `column IS NOT NULL`
+
+### NOT Supported:
+- `column IS TRUE` / `column IS FALSE`
+- `column IS NOT TRUE` / `column IS NOT FALSE`
+- `column = value` (any equality)
+- String comparisons
+
+### NOT Supported:
+- ❌ `column IS TRUE` - causes error `Expecting 'NOT' but found 'TRUE'`
+- ❌ `column IS FALSE` - causes error `Expecting 'NOT' but found 'FALSE'`
+- ❌ `column = value` - causes error `Expecting 'IS' but found '='`
+- ❌ String equality (`column = 'DRAFT'`) - not supported in filtered indexes
+
+```sql
+-- ✅ CORRECT: Use IS NOT TRUE for boolean false filter
+CREATE INDEX idx_intent_publication ON Intent(publication_status) 
+  WHERE is_deleted IS NOT TRUE;
+
+-- ❌ WRONG: IS FALSE not supported
+CREATE INDEX idx_intent_publication ON Intent(publication_status) 
+  WHERE is_deleted IS FALSE;
+
+-- ❌ WRONG: Equality not supported  
+CREATE INDEX idx_intent_publication ON Intent(publication_status) 
+  WHERE is_deleted = false;
+
+-- ❌ WRONG: String equality not supported in filtered indexes
+CREATE INDEX idx_intent_draft ON Intent(updated_at DESC) 
+  WHERE publication_status = 'DRAFT' AND is_deleted = false;
+
+-- ✅ CORRECT: Use composite index instead (filter at query time)
+CREATE INDEX idx_intent_draft ON Intent(publication_status, is_deleted, updated_at DESC);
+```
+
+---
+
+## gcloud DDL Commands
+
+**CRITICAL**: Use `ddl update` for DDL statements, NOT `execute-sql`.
+
+```bash
+# ❌ WRONG: execute-sql does not support DDL
+gcloud spanner databases execute-sql credentials_graph_poc \
+  --sql="DROP TABLE Intent"
+# Error: DDL statements cannot be processed by the Query API
+
+# ✅ CORRECT: Use ddl update for DDL operations  
+gcloud spanner databases ddl update credentials_graph_poc \
+  --instance=my-instance \
+  --project=my-project \
+  --ddl="DROP INDEX idx_intent_location" \
+  --ddl="DROP INDEX idx_intent_plan_id" \
+  --ddl="DROP TABLE Intent"
+```
+
+---
+
 ## Migration File Standards
 
 ### Naming Convention
@@ -330,6 +438,39 @@ ALTER TABLE Intent DROP COLUMN IF EXISTS query;
 ALTER TABLE Intent DROP COLUMN query;
 ```
 
+❌ **DON'T**: Omit parentheses in DEFAULT values
+```sql
+-- ❌ BAD: Missing parentheses
+version INT64 NOT NULL DEFAULT 1,
+
+-- ✅ GOOD: Include parentheses
+version INT64 NOT NULL DEFAULT (1),
+```
+
+❌ **DON'T**: Use any boolean predicate in filtered index WHERE
+```sql
+-- ❌ BAD: IS FALSE not supported
+WHERE is_deleted IS FALSE
+
+-- ❌ BAD: IS NOT TRUE not supported
+WHERE is_deleted IS NOT TRUE
+
+-- ❌ BAD: Equality not supported
+WHERE is_deleted = false
+
+-- ✅ GOOD: Use composite index instead
+CREATE INDEX idx_name ON Table(col1, is_deleted);
+```
+
+❌ **DON'T**: Use execute-sql for DDL operations
+```bash
+# ❌ BAD: execute-sql is for queries only
+gcloud spanner databases execute-sql db --sql="DROP TABLE T"
+
+# ✅ GOOD: Use ddl update for DDL
+gcloud spanner databases ddl update db --ddl="DROP TABLE T"
+```
+
 ---
 
 ## Checklist
@@ -348,6 +489,10 @@ Before creating a migration, verify:
 - [ ] Indexes have descriptive names with `idx_` prefix
 - [ ] Data migration is handled separately (not in migration file)
 - [ ] Migration tested on development database first
+- [ ] DEFAULT values use parentheses: `DEFAULT (1)` not `DEFAULT 1`
+- [ ] Interleaved tables have comma before INTERLEAVE: `), INTERLEAVE IN PARENT`
+- [ ] Filtered indexes only use `IS NULL`/`IS NOT NULL` (no boolean predicates)
+- [ ] No string equality in filtered index WHERE clauses
 
 ---
 
