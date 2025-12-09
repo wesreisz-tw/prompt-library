@@ -263,3 +263,506 @@ export default function HomePage() {
 - Use TypeScript's type system as documentation
 - Add JSDoc comments for complex types and interfaces
 - Document expected prop values and component usage
+
+---
+
+## 10. Anti-Patterns Checklist
+
+This section documents common mistakes and anti-patterns specific to TypeScript/React/Next.js that should be flagged during code review as **SHOULD FIX (Critical Best Practices)** with appropriate severity levels.
+
+### 10.1 Performance Anti-Patterns
+
+#### Synchronous Blocking Operations in Hot Paths [HIGH]
+
+**Problem**: localStorage/sessionStorage writes on every state change block the main thread.
+
+```typescript
+// ❌ Bad - writes on every keystroke
+useEffect(() => {  
+  localStorage.setItem('state', JSON.stringify(state))
+}, [state])
+
+// ✅ Good - debounced writes (500ms delay)
+useEffect(() => {  
+  const timeoutId = setTimeout(() => {
+    localStorage.setItem('state', JSON.stringify(state))
+  }, 500)
+  return () => clearTimeout(timeoutId)
+}, [state])
+
+// ✅ Alternative - save only on significant events
+useEffect(() => {  
+  localStorage.setItem('state', JSON.stringify(state))
+}, [state.currentStep]) // Only save when step changes, not on text input
+```
+
+**Impact**: Degrades UX, especially on slower devices. Each write can take 1-5ms, blocking user interactions.
+
+---
+
+#### Missing Memoization for Expensive Operations [MEDIUM]
+
+**Problem**: Expensive computations re-run on every render.
+
+```typescript
+// ❌ Bad - recalculates on every render
+function Component({ items }: { items: Item[] }) {
+  const sortedItems = items
+    .map(item => ({ ...item, score: calculateComplexScore(item) }))
+    .sort((a, b) => b.score - a.score)
+  
+  return <List data={sortedItems} />
+}
+
+// ✅ Good - memoized
+function Component({ items }: { items: Item[] }) {
+  const sortedItems = useMemo(
+    () => items
+      .map(item => ({ ...item, score: calculateComplexScore(item) }))
+      .sort((a, b) => b.score - a.score),
+    [items]
+  )
+  
+  return <List data={sortedItems} />
+}
+```
+
+**When to use**: Operations taking >5ms, array transformations with >100 items, recursive calculations.
+
+---
+
+#### Unbounded List Rendering [HIGH]
+
+**Problem**: Rendering large lists (>100 items) without virtualization.
+
+```typescript
+// ❌ Bad - renders all 10,000 items
+{items.map(item => <ItemCard key={item.id} {...item} />)}
+
+// ✅ Good - virtualized rendering (react-window)
+import { FixedSizeList } from 'react-window'
+
+<FixedSizeList
+  height={600}
+  itemCount={items.length}
+  itemSize={80}
+  width="100%"
+>
+  {({ index, style }) => (
+    <div style={style}>
+      <ItemCard {...items[index]} />
+    </div>
+  )}
+</FixedSizeList>
+```
+
+**Threshold**: Use virtualization for lists with >100-200 items, or if item rendering is expensive.
+
+---
+
+#### Multiple Sequential API Calls (Waterfall) [MEDIUM]
+
+**Problem**: Dependent API calls that could be parallelized.
+
+```typescript
+// ❌ Bad - sequential (3 seconds total if each takes 1s)
+const user = await fetchUser(id)
+const posts = await fetchPosts(user.id)
+const comments = await fetchComments(user.id)
+
+// ✅ Good - parallel (1 second total)
+const [user, posts, comments] = await Promise.all([
+  fetchUser(id),
+  fetchPosts(id),  // If posts/comments don't depend on user data
+  fetchComments(id)
+])
+```
+
+**Note**: Only parallelize truly independent calls. Maintain sequential calls when data dependencies exist.
+
+---
+
+#### Missing Dependencies in useEffect [HIGH]
+
+**Problem**: useEffect with incomplete dependency array causes stale closures and bugs.
+
+```typescript
+// ❌ Bad - userId changes not tracked
+useEffect(() => {
+  fetchData(userId)
+}, []) // Missing userId dependency!
+
+// ✅ Good - complete dependencies
+useEffect(() => {
+  fetchData(userId)
+}, [userId])
+
+// ✅ Alternative - if callback needs to be stable
+const fetchDataCallback = useCallback(() => {
+  fetchData(userId)
+}, [userId])
+
+useEffect(() => {
+  fetchDataCallback()
+}, [fetchDataCallback])
+```
+
+**Rule**: Always include ALL external values used inside useEffect. Use ESLint rule `react-hooks/exhaustive-deps`.
+
+---
+
+### 10.2 React/Next.js Anti-Patterns
+
+#### Missing Error Boundaries [HIGH]
+
+**Problem**: Async operations or external data fetching without error boundaries allow entire app to crash.
+
+```typescript
+// ❌ Bad - no error boundary
+export default function Page() {
+  return <ComponentThatMightThrow />
+}
+
+// ✅ Good - wrapped in error boundary
+import { ErrorBoundary } from '@/components/error-boundary'
+
+export default function Page() {
+  return (
+    <ErrorBoundary fallback={<ErrorFallback />}>
+      <ComponentThatMightThrow />
+    </ErrorBoundary>
+  )
+}
+```
+
+**Where to add**: Around async data fetching, third-party components, dynamic imports, user-generated content.
+
+**Reference**: See Section 7.1 for error boundary implementation patterns.
+
+---
+
+#### Client-Side Data Fetching When Server Components Would Work [MEDIUM]
+
+**Problem**: Unnecessarily shipping data fetching logic to the client.
+
+```typescript
+// ❌ Bad - client-side fetch for static data
+'use client'
+
+export default function Page() {
+  const [data, setData] = useState(null)
+  
+  useEffect(() => {
+    fetch('/api/data')
+      .then(r => r.json())
+      .then(setData)
+  }, [])
+  
+  if (!data) return <Loading />
+  return <div>{data.title}</div>
+}
+
+// ✅ Good - server component with async fetch
+export default async function Page() {
+  const data = await fetch('/api/data', {
+    next: { revalidate: 3600 } // Cache for 1 hour
+  }).then(r => r.json())
+  
+  return <div>{data.title}</div>
+}
+```
+
+**When to use client**: User interactions, browser APIs (localStorage, geolocation), real-time updates, client-specific state.
+
+**Reference**: See Section 3.2 for Server vs Client Component guidance.
+
+---
+
+#### Using Index as Key for Dynamic Lists [MEDIUM]
+
+**Problem**: Index keys break React reconciliation when list order changes.
+
+```typescript
+// ❌ Bad - index as key (breaks on reorder/filter)
+{items.map((item, index) => (
+  <Item key={index} {...item} />
+))}
+
+// ✅ Good - stable unique ID
+{items.map(item => (
+  <Item key={item.id} {...item} />
+))}
+
+// ✅ Acceptable - if list never reorders and items are primitives
+{staticList.map((label, index) => (
+  <span key={`label-${index}`}>{label}</span>
+))}
+```
+
+**Rule**: Only use index as key if: list is static, items never reorder/filter, and items are primitives.
+
+---
+
+#### Prop Drilling Instead of Context [LOW]
+
+**Problem**: Passing props through 3+ levels of components.
+
+```typescript
+// ❌ Bad - prop drilling through 4 levels
+<App user={user}>
+  <Layout user={user}>
+    <Page user={user}>
+      <Component user={user} />
+
+// ✅ Good - context for widely-used data
+const UserContext = createContext<User | null>(null)
+
+function App() {
+  return (
+    <UserContext.Provider value={user}>
+      <Layout>
+        <Page>
+          <Component /> {/* useContext(UserContext) internally */}
+```
+
+**Threshold**: Use Context when passing data through 3+ levels, or data is needed by many unrelated components.
+
+---
+
+### 10.3 Security Anti-Patterns
+
+#### PII or Secrets in localStorage Without Encryption [HIGH]
+
+**Problem**: Sensitive data stored in plaintext is vulnerable to XSS attacks.
+
+```typescript
+// ❌ Bad - plaintext sensitive data
+localStorage.setItem('user', JSON.stringify({ 
+  ssn: '123-45-6789',
+  creditCard: '4111-1111-1111-1111'
+}))
+
+// ✅ Good - don't store PII client-side
+// Store in secure HttpOnly cookie server-side instead
+
+// ✅ Acceptable - if encryption is required client-side
+import { encrypt, decrypt } from '@/lib/crypto'
+const encrypted = encrypt(JSON.stringify(userData))
+localStorage.setItem('user', encrypted)
+```
+
+**Rule**: Never store SSN, credit cards, passwords, or other PII in localStorage/sessionStorage. Use secure HttpOnly cookies for sensitive session data.
+
+---
+
+#### Unvalidated User Input in Dynamic Content [HIGH]
+
+**Problem**: XSS vulnerability when rendering user-generated content.
+
+```typescript
+// ❌ Bad - XSS vulnerability
+<div dangerouslySetInnerHTML={{ __html: userComment }} />
+
+// ✅ Good - sanitized input
+import DOMPurify from 'dompurify'
+
+<div dangerouslySetInnerHTML={{ 
+  __html: DOMPurify.sanitize(userComment, {
+    ALLOWED_TAGS: ['b', 'i', 'em', 'strong', 'a'],
+    ALLOWED_ATTR: ['href']
+  }) 
+}} />
+
+// ✅ Better - avoid dangerouslySetInnerHTML entirely
+<div>{userComment}</div> // React auto-escapes
+```
+
+**Rule**: Always sanitize user input before rendering as HTML. Prefer React's automatic escaping when possible.
+
+---
+
+#### API Keys or Secrets in Client Code [HIGH]
+
+**Problem**: Environment variables prefixed with `NEXT_PUBLIC_` are exposed to the client.
+
+```typescript
+// ❌ Bad - exposes secret to client
+const apiKey = process.env.NEXT_PUBLIC_API_SECRET
+
+// ✅ Good - server-side only
+// In API route or Server Component:
+const apiKey = process.env.API_SECRET // No NEXT_PUBLIC_ prefix
+```
+
+**Rule**: Never prefix secrets with `NEXT_PUBLIC_`. Use server-side API routes or Server Components for authenticated requests.
+
+---
+
+### 10.4 Accessibility Anti-Patterns
+
+#### Interactive Elements Without Keyboard Support [HIGH]
+
+**Problem**: Div/span used for interaction without keyboard accessibility.
+
+```typescript
+// ❌ Bad - no keyboard support
+<div onClick={handleClick}>Click me</div>
+
+// ✅ Good - use semantic button
+<button onClick={handleClick}>Click me</button>
+
+// ✅ Acceptable - if button styling doesn't work
+<div 
+  role="button"
+  tabIndex={0}
+  onClick={handleClick}
+  onKeyDown={(e) => {
+    if (e.key === 'Enter' || e.key === ' ') {
+      e.preventDefault()
+      handleClick()
+    }
+  }}
+>
+  Click me
+</div>
+```
+
+**Rule**: Use semantic HTML (`<button>`, `<a>`) for interactive elements. If divs are required, add full keyboard support.
+
+**Reference**: See `.cursor/rules/accessibility.mdc` Section 3 for comprehensive keyboard navigation patterns.
+
+---
+
+#### Missing ARIA Labels on Icon-Only Buttons [HIGH]
+
+**Problem**: Screen readers can't identify button purpose.
+
+```typescript
+// ❌ Bad - screen reader announces "button" with no context
+<button>
+  <CloseIcon />
+</button>
+
+// ✅ Good - accessible label
+<button aria-label="Close dialog">
+  <CloseIcon aria-hidden="true" />
+</button>
+
+// ✅ Alternative - visible text with screen reader class
+<button>
+  <CloseIcon aria-hidden="true" />
+  <span className="sr-only">Close dialog</span>
+</button>
+```
+
+**Rule**: All icon-only interactive elements must have `aria-label` or visually hidden text.
+
+---
+
+#### Form Inputs Without Associated Labels [HIGH]
+
+**Problem**: Screen readers can't identify input purpose; reduces click target.
+
+```typescript
+// ❌ Bad - no label association
+<div>
+  <span>Email</span>
+  <input type="email" placeholder="Enter email" />
+</div>
+
+// ✅ Good - properly associated label
+<div>
+  <label htmlFor="email-input">Email</label>
+  <input id="email-input" type="email" placeholder="Enter email" />
+</div>
+
+// ✅ Alternative - label wrapping input
+<label>
+  Email
+  <input type="email" placeholder="Enter email" />
+</label>
+```
+
+**Rule**: All form inputs must have associated `<label>` elements using `htmlFor`/`id` or wrapping.
+
+**Reference**: See `.cursor/rules/accessibility.mdc` Section 9 for comprehensive form accessibility patterns.
+
+---
+
+### 10.5 TypeScript Anti-Patterns
+
+#### Using `any` Type [HIGH]
+
+**Problem**: Defeats TypeScript's type safety.
+
+```typescript
+// ❌ Bad - any type
+function processData(data: any) {
+  return data.value // No type checking
+}
+
+// ✅ Good - unknown with type narrowing
+function processData(data: unknown) {
+  if (typeof data === 'object' && data !== null && 'value' in data) {
+    return (data as { value: string }).value
+  }
+  throw new Error('Invalid data structure')
+}
+
+// ✅ Better - proper typing
+interface DataStructure {
+  value: string
+}
+
+function processData(data: DataStructure) {
+  return data.value
+}
+```
+
+**Rule**: The `any` type is **forbidden** per Section 2.1. Use `unknown` with type narrowing instead.
+
+---
+
+#### Non-Null Assertions Without Validation [MEDIUM]
+
+**Problem**: Using `!` operator without guaranteeing value exists.
+
+```typescript
+// ❌ Bad - assumes user exists
+const userName = users.find(u => u.id === id)!.name // Runtime error if not found
+
+// ✅ Good - handle undefined case
+const user = users.find(u => u.id === id)
+if (!user) throw new Error(`User ${id} not found`)
+const userName = user.name
+
+// ✅ Alternative - optional chaining with fallback
+const userName = users.find(u => u.id === id)?.name ?? 'Unknown'
+```
+
+**Rule**: Only use non-null assertion (`!`) when TypeScript's type system can't infer a guarantee you know is true. Always prefer explicit validation.
+
+---
+
+### 10.6 Testing Anti-Patterns
+
+**Note**: For comprehensive testing anti-patterns, see `.cursor/rules/frontend-testing.mdc` Section 1 (Common Mistakes to Avoid).
+
+Key testing anti-patterns to flag:
+- Using `container.querySelector` instead of accessible queries (CRITICAL)
+- Using `queryBy*` for positive assertions instead of `getBy*` (CRITICAL)  
+- Using `fireEvent` instead of `userEvent` (IMPORTANT)
+- Missing test coverage for critical user flows (MEDIUM)
+
+---
+
+## Summary
+
+This anti-patterns checklist should be used during code review to identify **SHOULD FIX (Tier 2)** issues. Each pattern includes:
+- **Severity**: [HIGH], [MEDIUM], [LOW]
+- **Problem**: Description of the anti-pattern
+- **Examples**: Bad and good code patterns
+- **Impact**: Why this matters
+- **Rule/Reference**: Link to relevant section in this document or other rule files
+
+For code review process, see `.cursor/commands/9-code-review.md`.
