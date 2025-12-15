@@ -10,16 +10,21 @@ You are an expert full-stack developer proficient in TypeScript, React, Next.js,
 - **Source Root**: All application source code resides at the project root (no `src/` directory).
 - **Logical Folders**: Use a clear, logical folder structure at the project root:
   - `app/`: Next.js App Router pages, layouts, and API routes
-  - `components/`: Reusable React components
-    - `components/ui/`: Simple, generic UI components (shadcn wrappers)
-    - `components/shared/` or `components/features/`: Complex, domain-specific components
+  - `components/`: React components organized by type and domain (see `component-architecture.mdc` for full details):
+    - `components/ui/`: shadcn/ui primitives only (Button, Card, Input, etc.)
+    - `components/shared/`: Cross-cutting reusable components (accessibility utilities)
+    - `components/layout/`: App shell components (header/, footer/, hero/, breadcrumb, logo)
+    - `components/providers/`: React context providers (auth-provider, query-provider)
+    - `components/features/`: Domain-specific business components (wizard/, checklist/, auth/)
+    - `components/aem/`: AEM content-driven components (pages/, nav-cards/, helpful-links/, qa/, toolkit/)
   - `lib/`: Utility functions, helper libraries, and API clients
   - `hooks/`: Custom React hooks
   - `types/`: Shared TypeScript types and interfaces
 - **Colocation**: Group related files together. A component's test files should be placed in the same directory as the component itself.
+- **No Barrel Exports**: Import components directly from their files, not from index.ts barrel exports. This enables better tree-shaking.
 
 ### 1.2 Naming Conventions
-- **Components**: Use **PascalCase** for all component files and names (e.g., `Header.tsx`, `ProductCard.tsx`)
+- **Components**: Use **kebab-case** for component file names (e.g., `header.tsx`, `product-card.tsx`). Use **PascalCase** for the exported component name within the file.
 - **Pages & Layouts**: Use **kebab-case** for folder names in the `app/` router. The page component file itself should be named `page.tsx` and the layout component file `layout.tsx` (e.g., `app/products/[slug]/page.tsx`)
 - **Custom Hooks**: Prefix all custom hooks with **`use`** (e.g., `useUser`, `useAuth`)
 - **Files & Folders (Non-Component)**: Use **kebab-case** for all other file and folder names (e.g., `fetch-data.ts`, `api/products/route.ts`)
@@ -503,6 +508,87 @@ export default async function Page() {
 
 ---
 
+#### Direct DOM Manipulation [HIGH]
+
+**Problem**: Using `document.querySelector`, `document.getElementById`, `document.createElement`, or `element.addEventListener` bypasses React's virtual DOM and can cause reconciliation conflicts, memory leaks, and unpredictable behavior.
+
+```typescript
+// ❌ Bad - imperative DOM query
+useEffect(() => {
+  const element = document.getElementById('my-element')
+  if (element) {
+    element.focus()
+  }
+}, [])
+
+// ❌ Bad - querySelector to find child elements
+const closeButton = containerRef.current?.querySelector('button')
+closeButton?.focus()
+
+// ❌ Bad - global event listeners
+useEffect(() => {
+  document.addEventListener('keydown', handleKeyDown)
+  return () => document.removeEventListener('keydown', handleKeyDown)
+}, [])
+
+// ❌ Bad - imperative DOM creation
+const container = document.createElement('div')
+container.style.position = 'absolute'
+document.body.appendChild(container)
+```
+
+```typescript
+// ✅ Good - use refs for elements in the same component
+const elementRef = useRef<HTMLDivElement>(null)
+
+useEffect(() => {
+  elementRef.current?.focus()
+}, [])
+
+<div ref={elementRef} tabIndex={-1}>...</div>
+
+// ✅ Good - use dedicated refs instead of querySelector
+const closeButtonRef = useRef<HTMLButtonElement>(null)
+
+useEffect(() => {
+  closeButtonRef.current?.focus()
+}, [isOpen])
+
+<Button ref={closeButtonRef}>Close</Button>
+
+// ✅ Good - use React event handlers instead of addEventListener
+<div onKeyDown={handleKeyDown}>...</div>
+
+// ✅ Good - if global listeners needed, scope to container element
+<div
+  ref={containerRef}
+  onKeyDown={(e) => {
+    if (e.key === 'Escape') onClose()
+  }}
+>
+
+// ✅ Good - use React portals instead of createElement/appendChild
+import { createPortal } from 'react-dom'
+
+{createPortal(
+  <div className="sr-only" role="status" aria-live="polite">
+    {announcement}
+  </div>,
+  document.body
+)}
+```
+
+**Allowed Exceptions**:
+- Browser APIs with no React equivalent: `matchMedia`, `ResizeObserver`, `IntersectionObserver`
+- Third-party library integration that requires DOM access
+- Refs on elements within the same component (using `ref.current` is acceptable)
+
+**Rule**: Never use `document.querySelector`, `document.getElementById`, or `document.createElement` in React components. Use refs for DOM access, React event handlers instead of `addEventListener`, and portals instead of imperative DOM insertion.
+
+**Reference**: See `specifications/dom-manipulation-audit.md` for detailed analysis of existing instances.
+
+---
+
 #### Prop Drilling Instead of Context [LOW]
 
 **Problem**: Passing props through 3+ levels of components.
@@ -753,6 +839,118 @@ Key testing anti-patterns to flag:
 - Using `queryBy*` for positive assertions instead of `getBy*` (CRITICAL)  
 - Using `fireEvent` instead of `userEvent` (IMPORTANT)
 - Missing test coverage for critical user flows (MEDIUM)
+
+---
+
+## 11. Pattern Identification & Consolidation
+
+When reviewing code or planning features, actively identify opportunities to consolidate repeated patterns into shared abstractions.
+
+### 11.1 Pattern Recognition Triggers
+
+**Flag for consolidation when you observe:**
+
+| Trigger | Threshold | Action |
+|---------|-----------|--------|
+| Same structural pattern | 3+ components | Suggest shared component |
+| Repeated CSS class combinations | 3+ files | Suggest utility class or component |
+| Similar prop interfaces | 3+ components | Suggest shared type/interface |
+| Identical data fetching logic | 2+ components | Suggest custom hook |
+| Same container wrapper structure | 3+ components | Suggest layout component |
+
+### 11.2 How to Identify Patterns
+
+**Search techniques:**
+1. **Grep for structural CSS:** `max-w-[1440px] mx-auto`, `px-6 md:px-8 2xl:px-20`
+2. **Grep for shared component imports:** If `ToolkitHeader` is imported 3+ places, there's likely a pattern
+3. **Compare file structures side-by-side:** Look for identical wrapper/container shapes
+4. **Check naming conventions:** `*-container.tsx`, `*-skeleton.tsx` patterns suggest similar responsibilities
+
+**Example pattern search:**
+```bash
+# Find all components using the same layout structure
+grep -r "max-w-\[1440px\] mx-auto" components/
+
+# Find all imports of a potentially shared component
+grep -r "ToolkitHeader" components/
+```
+
+### 11.3 When to Suggest Consolidation
+
+**SHOULD suggest abstraction when:**
+- 3+ components share identical structural patterns (wrapper, padding, max-width)
+- A component is imported and used identically in 3+ places
+- Copy-paste is the path of least resistance for new features
+- The pattern is stable (not likely to diverge)
+
+**SHOULD NOT abstract when:**
+- Only 2 instances exist (wait for the third)
+- Instances are likely to diverge in behavior
+- Abstraction would require complex conditional logic
+- The "pattern" is coincidental, not intentional
+
+### 11.4 How to Propose Consolidation
+
+When identifying a pattern, document:
+
+1. **Evidence:** List the files that share the pattern
+2. **Pattern description:** What's repeated (structure, props, behavior)
+3. **Proposed abstraction:** Component name, props interface, usage example
+4. **Trade-offs:** Complexity added vs. duplication removed
+5. **Migration path:** How existing code would adopt the abstraction
+
+**Example proposal format:**
+```markdown
+## Pattern Identified: Section Container
+
+### Evidence
+- `toolkit/toolkit-container.tsx`
+- `helpful-links/helpful-links-container.tsx`
+- `nav-cards/nav-cards-container.tsx`
+
+### Repeated Structure
+- `<section aria-label="...">` wrapper
+- `className={cn('w-full bg-white', 'px-6 md:px-8 2xl:px-20', 'py-10')}`
+- `<div className={cn('max-w-[1440px] mx-auto', 'flex flex-col gap-10')}>`
+- Header component + children
+
+### Proposed Abstraction
+```tsx
+interface SectionContainerProps {
+  ariaLabel: string
+  title: string
+  description?: string
+  children: React.ReactNode
+}
+```
+
+### Trade-offs
+- ✅ Single source of truth for section layout
+- ✅ Consistent responsive padding across all sections
+- ⚠️ Adds one level of abstraction
+- ⚠️ Existing components need migration
+```
+
+### 11.5 Consolidation Decision Matrix
+
+| Scenario | Recommendation |
+|----------|----------------|
+| 2 similar components | Document pattern, wait for third instance |
+| 3+ identical structures | Propose shared component |
+| 3+ similar but varying structures | Propose component with variants/props |
+| Pattern spans feature boundaries | Propose in `components/shared/` |
+| Pattern is feature-specific | Keep in feature folder, extract if it spreads |
+
+### 11.6 Integration with Planning
+
+**During story planning:**
+- Before implementing, search for similar existing components
+- If implementing would create a third instance of a pattern, propose consolidation first
+- Document pattern discoveries in specification files for team visibility
+
+**During code review:**
+- Flag when a PR introduces duplication of an existing pattern
+- Suggest consolidation as a follow-up task if not blocking
 
 ---
 
