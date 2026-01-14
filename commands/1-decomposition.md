@@ -1,11 +1,12 @@
-This story [STORY_ID] needs to be broken down into sequential, independent tasks for implementation. 
+This story [STORY_ID] needs to be broken down into sequential, independent tasks for implementation.
 
-INTENTION: We're creating atomic tasks to reduce complexity, enable focused implementation 
-cycles, and provide clear progress milestones. Each task should build incrementally 
+INTENTION: We're creating atomic tasks to reduce complexity, enable focused implementation
+cycles, and provide clear progress milestones. Each task should build incrementally
 toward the complete story implementation.
 
-Analyze the story specification and create task requirement files (task-01.md, task-02.md, etc.) 
+Analyze the story specification and create task requirement files (task-01.md, task-02.md, etc.)
 where each task:
+
 1. Is independently implementable and testable
 2. Builds incrementally toward story completion
 3. Has clear dependencies on previous tasks
@@ -19,6 +20,7 @@ Consider natural boundaries such as: data layer → business logic → API layer
 or foundational setup → core implementation → integration → validation.
 
 For each task, create a task-[N].md file that includes:
+
 - Task objective and scope
 - Acceptance criteria
 - Dependencies on previous tasks
@@ -28,7 +30,23 @@ For each task, create a task-[N].md file that includes:
 
 Provide the breakdown as a numbered sequence of task requirement files.
 
+FINAL REVIEW TASK:
+
+After creating implementation tasks, always create a final task-[N]-review.md that:
+
+- Scans story.md for Figma links (figma.com/design, figma.com/file, figma.com/board) to detect UI stories
+- Extracts story ID from directory path (e.g., DBP-325 from specifications/dbp-325-\*)
+- Collects all story commits: git log --all --grep="<STORY_ID>" --oneline
+- Generates aggregated diff of net changes: git diff <first-commit>^..<last-commit>
+- Executes /bpp-web/9-code-review against the aggregated diff
+- If Figma links found, also executes /bpp-web/10-design-review with story context
+- Documents that all Tier 1 issues must be resolved before merge
+
+This review task depends on all previous tasks and serves as the final quality gate.
+
 FILE ORGANIZATION:
+
 - Create all task files in the same directory as the story being decomposed
 - Use naming convention: task-01.md, task-02.md, etc. (zero-padded numbers)
+- Final review task: task-[N]-review.md where N is the last task number
 - This co-location ensures easy reference and maintains story-task relationships
