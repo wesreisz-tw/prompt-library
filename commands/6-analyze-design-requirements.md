@@ -1,6 +1,6 @@
 ---
 description: Analyze Figma design files to extract implementation requirements
-globs:
+globs: *
 alwaysApply: false
 ---
 "do fa; Analyze the Figma design file at [FIGMA_LINK] using Figma MCP servers to extract comprehensive implementation requirements.

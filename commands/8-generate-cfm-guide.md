@@ -1,6 +1,6 @@
 ---
 description: Generate AEM Content Fragment Model implementation guide from story requirements
-globs:
+globs: *
 alwaysApply: false
 ---
 "do fas; Generate an AEM Content Fragment Model implementation guide for [STORY_ID].

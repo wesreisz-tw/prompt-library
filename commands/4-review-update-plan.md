@@ -1,3 +1,7 @@
+---
+globs: *
+---
+
 "do rev; Review and validate the implementation approach for [TASK_ID] based on research findings.
 
 The task requirements are specified in task-[N].md and the initial implementation plan is in task-[N]-plan.md.

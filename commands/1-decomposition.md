@@ -1,3 +1,7 @@
+---
+globs: **/*.{ts,tsx,js,jsx,md,json,css,mjs}
+---
+
 This story [STORY_ID] needs to be broken down into sequential, independent tasks for implementation.
 
 INTENTION: We're creating atomic tasks to reduce complexity, enable focused implementation

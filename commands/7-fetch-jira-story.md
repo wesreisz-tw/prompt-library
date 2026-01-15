@@ -1,6 +1,6 @@
 ---
 description: Fetch Jira issue details for story analysis
-globs:
+globs: *
 alwaysApply: false
 ---
 
