@@ -1,1645 +1,181 @@
 ---
-globs: *.test.tsx,*.test.ts,*.spec.ts,*.md
+description: 'Jest and React Testing Library patterns for unit tests, integration tests, and E2E with Playwright. Apply when writing or reviewing test files.'
+globs: *.test.tsx,*.test.ts,*.spec.ts
 alwaysApply: false
 ---
+
 # Frontend Testing Rules
 
-## 1. Quick Reference: Common Mistakes to Avoid
+## 1. Framework Requirements
 
-This section highlights common testing mistakes based on [Kent C. Dodds' "Common Mistakes with React Testing Library"](https://kentcdodds.com/blog/common-mistakes-with-react-testing-library). Each mistake is categorized by severity to help prioritize which patterns to follow.
+| Purpose       | Framework                    | Notes                           |
+| ------------- | ---------------------------- | ------------------------------- |
+| Unit Tests    | Jest + React Testing Library | Default for all component tests |
+| E2E Tests     | Playwright                   | Critical user flows only        |
+| API Mocking   | MSW (Mock Service Worker)    | For integration tests           |
+| Accessibility | jest-axe                     | Automated a11y checks           |
 
-### 1.1 Critical Mistakes [HIGH]
+## 2. Query Priority (Accessibility-First)
 
-These mistakes will likely cause you to miss bugs or create problematic tests.
+Use queries in this order - if you can't query accessibly, the UI may not be accessible:
 
-#### Using the Wrong Query
+| Priority | Query                  | Use Case                                      |
+| -------- | ---------------------- | --------------------------------------------- |
+| 1        | `getByRole`            | Interactive elements (buttons, inputs, links) |
+| 2        | `getByLabelText`       | Form fields with labels                       |
+| 3        | `getByPlaceholderText` | Only if no label exists                       |
+| 4        | `getByText`            | Non-interactive text content                  |
+| 5        | `getByDisplayValue`    | Current form input values                     |
+| 6        | `getByAltText`         | Images                                        |
+| 7        | `getByTitle`           | Last resort                                   |
+| 8        | `getByTestId`          | **Avoid** - only when nothing else works      |
 
-**Severity**: [CRITICAL]
+**NEVER use**: `container.querySelector` or DOM traversal methods.
 
-```typescript
-// ❌ Bad - using test IDs when accessible queries available
-// DOM: <label>Username</label><input data-testid="username" />
-screen.getByTestId('username')
+## 3. Query Variants
 
-// ❌ Bad - using container.querySelector
-const { container } = render(<Example />)
-const button = container.querySelector('.btn-primary')
-
-// ✅ Good - query by role (accessible to users)
-// DOM: <label for="username">Username</label><input id="username" type="text" />
-screen.getByRole('textbox', { name: /username/i })
-```
-
-**Why this matters**: Querying by accessibility attributes ensures your UI is accessible to all users. If you can't query it accessibly, your users can't use it accessibly. The query priority should be:
-1. `getByRole` (preferred - matches how users and assistive tech interact)
-2. `getByLabelText` (for form fields)
-3. `getByPlaceholderText` (only if no label)
-4. `getByText` (for non-interactive elements)
-5. `getByDisplayValue` (current form input values)
-6. `getByAltText` (images)
-7. `getByTitle` (last resort)
-8. `getByTestId` (only when nothing else works)
-
-**NEVER use**: `container.querySelector` or other DOM traversal methods.
-
----
-
-#### Using query\* Variants for Anything Except Checking Non-Existence
-
-**Severity**: [CRITICAL]
+| Variant    | Returns           | Use When                              |
+| ---------- | ----------------- | ------------------------------------- |
+| `getBy*`   | Element or throws | Element SHOULD exist                  |
+| `queryBy*` | Element or null   | Asserting element does NOT exist      |
+| `findBy*`  | Promise<Element>  | Element appears after async operation |
 
 ```typescript
-// ❌ Bad - query* doesn't throw helpful errors
-expect(screen.queryByRole('alert')).toBeInTheDocument()
-
-// ✅ Good - get* throws helpful error with full DOM if not found
-expect(screen.getByRole('alert')).toBeInTheDocument()
-
-// ✅ Good - query* ONLY for asserting non-existence
-expect(screen.queryByRole('alert')).not.toBeInTheDocument()
+// ✅ Correct usage
+screen.getByRole('button') // Element exists
+expect(screen.queryByRole('alert')).not.toBeInTheDocument() // Element doesn't exist
+await screen.findByRole('button') // Appears after async
 ```
 
-**Why this matters**: The `get*` variants throw an error with the entire rendered DOM when an element isn't found, making debugging much easier. The `query*` variants return `null` silently, giving you unhelpful error messages like "null is not in the document."
+## 4. Critical Patterns (Not ESLint-Enforced)
 
-**Rule**: ONLY use `query*` to assert that something does NOT exist.
-
----
-
-#### Using waitFor to Wait for Elements (Instead of find\*)
-
-**Severity**: [CRITICAL]
+### Use `userEvent` over `fireEvent`
 
 ```typescript
-// ❌ Bad - manually using waitFor for elements
-const submitButton = await waitFor(() =>
-  screen.getByRole('button', { name: /submit/i })
-)
-
-// ✅ Good - use find* which is built for this
-const submitButton = await screen.findByRole('button', { name: /submit/i })
-```
-
-**Why this matters**: `find*` queries are specifically designed for async element queries. They use `waitFor` under the hood but provide better error messages and cleaner syntax.
-
-**Rule**: Use `find*` any time you want to query for something that may not be available right away.
-
----
-
-#### Passing an Empty Callback to waitFor
-
-**Severity**: [CRITICAL]
-
-```typescript
-// ❌ Bad - empty waitFor is fragile
-await waitFor(() => {})
-expect(window.fetch).toHaveBeenCalledWith('foo')
-expect(window.fetch).toHaveBeenCalledTimes(1)
-
-// ✅ Good - wait for specific assertion
-await waitFor(() => expect(window.fetch).toHaveBeenCalledWith('foo'))
-expect(window.fetch).toHaveBeenCalledTimes(1)
-```
-
-**Why this matters**: An empty `waitFor` callback just waits for "one tick of the event loop" which is fragile. If you refactor your async logic, this test might break. Wait for a specific condition.
-
-**Rule**: Always wait for a specific assertion inside `waitFor`.
-
----
-
-#### Performing Side-Effects in waitFor
-
-**Severity**: [CRITICAL]
-
-```typescript
-// ❌ Bad - side-effects run multiple times
-await waitFor(() => {
-  fireEvent.keyDown(input, { key: 'ArrowDown' })
-  expect(screen.getAllByRole('listitem')).toHaveLength(3)
-})
-
-// ✅ Good - side-effects outside, only assertions inside
-fireEvent.keyDown(input, { key: 'ArrowDown' })
-await waitFor(() => {
-  expect(screen.getAllByRole('listitem')).toHaveLength(3)
-})
-```
-
-**Why this matters**: `waitFor` callbacks can be called multiple times (on interval and on DOM mutations). Your side-effect could run multiple times, causing unpredictable test behavior.
-
-**Rule**: Put side-effects OUTSIDE `waitFor` callbacks. Reserve callbacks for assertions only.
-
-**Note**: This also means you CANNOT use snapshot assertions within `waitFor`. First wait for a specific assertion, then take your snapshot.
-
----
-
-#### Using the Wrong Assertion
-
-**Severity**: [CRITICAL]
-
-```typescript
-// ❌ Bad - manual property checks give poor error messages
-const button = screen.getByRole('button', { name: /disabled button/i })
-expect(button.disabled).toBe(true)
-// Error: expect(received).toBe(expected)
-//        Expected: true
-//        Received: false
-
-// ✅ Good - jest-dom matchers give helpful error messages
-expect(button).toBeDisabled()
-// Error: Received element is not disabled:
-//        <button />
-```
-
-**Why this matters**: `@testing-library/jest-dom` provides custom matchers with much better error messages. When a test fails, you get clear information about what went wrong.
-
-**Rule**: MUST install and use `@testing-library/jest-dom` for assertions.
-
-**Available matchers**: `toBeInTheDocument`, `toBeDisabled`, `toBeVisible`, `toHaveTextContent`, `toHaveValue`, `toHaveAttribute`, and many more.
-
----
-
-### 1.2 Important Mistakes [MEDIUM]
-
-These mistakes might cause bugs or unnecessary work.
-
-#### Not Using Testing Library ESLint Plugins
-
-**Severity**: [IMPORTANT]
-
-```bash
-# Install these plugins to catch mistakes automatically
-npm install --save-dev eslint-plugin-testing-library
-npm install --save-dev eslint-plugin-jest-dom
-```
-
-**Why this matters**: These ESLint plugins catch many of the mistakes in this document automatically during development, preventing them from reaching code review or production.
-
-**Rule**: MUST install and configure both ESLint plugins.
-
-**Configuration**: See Section 2.2 for setup instructions.
-
----
-
-#### Not Using screen
-
-**Severity**: [IMPORTANT]
-
-```typescript
-// ❌ Bad - destructuring queries from render
-const { getByRole } = render(<Example />)
-const errorMessageNode = getByRole('alert')
-
-// ✅ Good - use screen for all queries
-render(<Example />)
-const errorMessageNode = screen.getByRole('alert')
-```
-
-**Why this matters**: Using `screen` means you don't need to keep the `render` destructure updated as you add/remove queries. Your editor's autocomplete handles everything after `screen.`.
-
-**Rule**: MUST use `screen` for querying and debugging.
-
-**Exception**: Only destructure `container` or `baseElement` if absolutely necessary (rare cases).
-
----
-
-#### Using cleanup
-
-**Severity**: [IMPORTANT]
-
-```typescript
-// ❌ Bad - cleanup is automatic now
-import { render, screen, cleanup } from '@testing-library/react'
-
-afterEach(cleanup)
-
-// ✅ Good - cleanup happens automatically
-import { render, screen } from '@testing-library/react'
-```
-
-**Why this matters**: `cleanup` has been automatic for all major testing frameworks for a long time. Adding it manually is redundant and shows the code is outdated.
-
-**Rule**: DO NOT use `cleanup` - it happens automatically.
-
----
-
-#### Wrapping Things in act Unnecessarily
-
-**Severity**: [IMPORTANT]
-
-```typescript
-// ❌ Bad - render and fireEvent already wrapped in act
-act(() => {
-  render(<Example />)
-})
-
-const input = screen.getByRole('textbox', { name: /choose a fruit/i })
-act(() => {
-  fireEvent.keyDown(input, { key: 'ArrowDown' })
-})
-
-// ✅ Good - no manual act needed
-render(<Example />)
-const input = screen.getByRole('textbox', { name: /choose a fruit/i })
-fireEvent.keyDown(input, { key: 'ArrowDown' })
-```
-
-**Why this matters**: `render`, `fireEvent`, and user-event utilities are already wrapped in `act`. Adding it manually is redundant. If you see an `act` warning, it's telling you something unexpected is happening - don't just silence it.
-
-**Rule**: Learn when `act` is necessary (rarely) and don't wrap things in `act` unnecessarily.
-
-**When `act` IS needed**: Usually only when updating state outside of React Testing Library utilities. See [Kent's blog post](https://kentcdodds.com/blog/fix-the-not-wrapped-in-act-warning).
-
----
-
-#### Using fireEvent Instead of user-event
-
-**Severity**: [IMPORTANT]
-
-```typescript
-// ❌ Bad - fireEvent is low-level
-import { fireEvent } from '@testing-library/react'
-
-fireEvent.change(input, { target: { value: 'hello' } })
-
-// ✅ Good - user-event simulates real user interactions
-import userEvent from '@testing-library/user-event'
-
+// ✅ Correct - simulates real user behavior
 const user = userEvent.setup()
 await user.type(input, 'hello')
-```
-
-**Why this matters**: `user-event` fires all the events a real user would fire (keyDown, keyPress, keyUp for each character, plus change events). This catches bugs that `fireEvent` misses, especially with libraries that don't listen for change events.
-
-**Rule**: SHOULD use `@testing-library/user-event` over `fireEvent` where possible.
-
-**When to use fireEvent**: Only for events that user-event doesn't support yet, or for programmatic events that users don't directly trigger.
-
----
-
-#### Having Multiple Assertions in a Single waitFor Callback
-
-**Severity**: [IMPORTANT]
-
-```typescript
-// ❌ Bad - multiple assertions delay failure
-await waitFor(() => {
-  expect(window.fetch).toHaveBeenCalledWith('foo')
-  expect(window.fetch).toHaveBeenCalledTimes(1)
-})
-
-// ✅ Good - single assertion in waitFor, rest outside
-await waitFor(() => expect(window.fetch).toHaveBeenCalledWith('foo'))
-expect(window.fetch).toHaveBeenCalledTimes(1)
-```
-
-**Why this matters**: If the second assertion fails, you'll wait for the entire timeout before seeing the failure. By putting only one assertion in `waitFor`, you wait for the UI to settle, then fail fast on additional assertions.
-
-**Rule**: SHOULD only put one assertion in a `waitFor` callback.
-
----
-
-### 1.3 Recommended Best Practices [LOW]
-
-These are style preferences that improve code quality.
-
-#### Using wrapper as the Variable Name
-
-**Severity**: [RECOMMENDED]
-
-```typescript
-// ❌ Bad - "wrapper" is old Enzyme terminology
-const wrapper = render(<Example prop="1" />)
-wrapper.rerender(<Example prop="2" />)
-
-// ✅ Good - destructure what you need
-const { rerender } = render(<Example prop="1" />)
-rerender(<Example prop="2" />)
-
-// ✅ Also good - use "view" if you need a variable
-const view = render(<Example prop="1" />)
-view.rerender(<Example prop="2" />)
-```
-
-**Why this matters**: The name "wrapper" comes from Enzyme and is misleading. The return value from `render` isn't wrapping anything - it's a collection of utilities.
-
-**Rule**: SHOULD destructure what you need from `render` or call it `view`.
-
----
-
-#### Using get\* Variants as Assertions
-
-**Severity**: [RECOMMENDED]
-
-```typescript
-// ❌ Implicit - query throws if not found
-screen.getByRole('alert', { name: /error/i })
-
-// ✅ Explicit - clear assertion intent
-expect(screen.getByRole('alert', { name: /error/i })).toBeInTheDocument()
-```
-
-**Why this matters**: This is mostly stylistic. The `get*` query will throw if the element isn't found, so the assertion technically isn't needed. However, the explicit assertion makes the intent clear to readers.
-
-**Rule**: SHOULD make assertions explicit for clarity, but implicit is acceptable.
-
----
-
-## 2. Testing Setup & Configuration
-
-### 2.1 Testing Frameworks (Mandatory)
-
-**Framework Requirements**:
-- **Unit Tests**: MUST use **Jest** with **React Testing Library**
-- **E2E Tests**: MUST use **Playwright** for end-to-end tests
-- **API Mocking**: MUST use **Mock Service Worker (MSW)** for integration tests
-
-**Current Project Configuration**:
-
-**Jest Configuration** (`jest.config.ts`):
-```typescript
-import type { Config } from 'jest';
-import nextJest from 'next/jest.js';
-
-const createJestConfig = nextJest({
-  dir: './',
-});
-
-const customJestConfig: Config = {
-  setupFilesAfterEnv: ['<rootDir>/jest.setup.js'],
-  testEnvironment: 'jest-environment-jsdom',
-  moduleNameMapper: {
-    '^@/(.*)$': '<rootDir>/$1',
-  },
-};
-
-export default createJestConfig(customJestConfig);
-```
-
-**Jest Setup** (`jest.setup.js`):
-```javascript
-import '@testing-library/jest-dom'
-import 'jest-axe/extend-expect'
-```
-
-**Package Dependencies**:
-```json
-{
-  "devDependencies": {
-    "@testing-library/jest-dom": "^6.8.0",
-    "@testing-library/react": "^16.3.0",
-    "@testing-library/user-event": "^14.6.1",
-    "jest": "^30.1.3",
-    "jest-environment-jsdom": "^30.1.2",
-    "jest-axe": "^10.0.0"
-  }
-}
-```
-
-**Running Tests**:
-```bash
-# Run all tests
-npm test
-
-# Run tests in watch mode
-npm test -- --watch
-
-# Run specific test file
-npm test -- path/to/test.test.tsx
-
-# Run with coverage
-npm test -- --coverage
-```
-
----
-
-### 2.2 ESLint Plugins (Mandatory)
-
-**Required Plugins**:
-1. **eslint-plugin-testing-library**: Catches React Testing Library mistakes
-2. **eslint-plugin-jest-dom**: Enforces jest-dom best practices
-
-**Installation**:
-```bash
-npm install --save-dev eslint-plugin-testing-library
-npm install --save-dev eslint-plugin-jest-dom
-```
-
-**ESLint Configuration** (`eslint.config.mjs`):
-```javascript
-import testingLibrary from 'eslint-plugin-testing-library'
-import jestDom from 'eslint-plugin-jest-dom'
-
-export default [
-  // ... other config
-  {
-    files: ['**/__tests__/**/*', '**/*.test.*', '**/*.spec.*'],
-    plugins: {
-      'testing-library': testingLibrary,
-      'jest-dom': jestDom,
-    },
-    rules: {
-      ...testingLibrary.configs.react.rules,
-      ...jestDom.configs.recommended.rules,
-    },
-  },
-]
-```
-
-**Note**: If using create-react-app, `eslint-plugin-testing-library` is already included.
-
----
-
-### 2.3 Project Structure
-
-**Test Location**: All tests MUST be in the `__tests__/` directory at project root.
-
-**Directory Structure**:
-```
-__tests__/
-├── accessibility/           # Accessibility tests (jest-axe)
-│   ├── wcag-compliance.test.tsx
-│   ├── keyboard-navigation.test.tsx
-│   ├── screen-reader.test.tsx
-│   ├── color-contrast.test.tsx
-│   └── touch-target.test.tsx
-├── components/              # Component unit tests
-│   ├── layout/
-│   │   ├── header.test.tsx
-│   │   └── footer.test.tsx
-│   └── forms/
-│       └── goal-input-form.test.tsx
-├── hooks/                   # Custom hook tests
-│   └── use-aem-content.test.tsx
-├── integration/             # Integration tests
-│   ├── api-results-flow.test.tsx
-│   └── navigation.test.tsx
-├── lib/                     # Utility function tests
-│   ├── accessibility/
-│   ├── aem/
-│   └── api/
-└── app/                     # Page tests
-    └── page.test.tsx
-```
-
-**Test File Naming Conventions**:
-- Component tests: `ComponentName.test.tsx`
-- Hook tests: `use-hook-name.test.tsx`
-- Page tests: `page.test.tsx`
-- Integration tests: `feature-name.test.tsx`
-
-**Colocation** (Alternative):
-You MAY colocate test files with source files if preferred:
-```
-components/
-├── layout/
-│   ├── header.tsx
-│   ├── header.test.tsx      # Colocated test
-│   ├── footer.tsx
-│   └── footer.test.tsx
-```
-
-**Rule**: MUST be consistent - either all tests in `__tests__/` OR all colocated, not mixed.
-
----
-
-## 3. React Testing Library Best Practices
-
-### 3.1 Rendering Components
-
-**Basic Rendering**:
-```typescript
-import { render, screen } from '@testing-library/react'
-import { MyComponent } from '@/components/my-component'
-
-test('renders component', () => {
-  render(<MyComponent />)
-  
-  // ✅ Use screen for all queries
-  const heading = screen.getByRole('heading', { name: /welcome/i })
-  expect(heading).toBeInTheDocument()
-})
-```
-
-**Key Rules**:
-- MUST use `screen` for all queries (not destructuring from `render`)
-- MUST NOT use `cleanup` (automatic)
-- MUST NOT use variable name `wrapper`
-
-**Rendering with Props**:
-```typescript
-test('renders with custom text', () => {
-  render(<Button>Click me</Button>)
-  
-  expect(screen.getByRole('button', { name: /click me/i })).toBeInTheDocument()
-})
-```
-
-**Rendering with Context/Providers**:
-```typescript
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-
-test('renders with React Query', () => {
-  const queryClient = new QueryClient()
-  
-  render(
-    <QueryClientProvider client={queryClient}>
-      <MyComponent />
-    </QueryClientProvider>
-  )
-  
-  // ... assertions
-})
-```
-
-**Creating a Custom Render Helper** (if needed frequently):
-```typescript
-// test-utils.tsx
-import { ReactElement } from 'react'
-import { render, RenderOptions } from '@testing-library/react'
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-
-function AllTheProviders({ children }: { children: React.ReactNode }) {
-  const queryClient = new QueryClient({
-    defaultOptions: {
-      queries: { retry: false },
-    },
-  })
-  
-  return (
-    <QueryClientProvider client={queryClient}>
-      {children}
-    </QueryClientProvider>
-  )
-}
-
-function customRender(
-  ui: ReactElement,
-  options?: Omit<RenderOptions, 'wrapper'>,
-) {
-  return render(ui, { wrapper: AllTheProviders, ...options })
-}
-
-export * from '@testing-library/react'
-export { customRender as render }
-```
-
----
-
-### 3.2 Query Selection Guide
-
-**Query Priority Hierarchy** (in order of preference):
-
-**1. getByRole** [PREFERRED]
-```typescript
-// ✅ Best - accessible to all users
-screen.getByRole('button', { name: /submit/i })
-screen.getByRole('textbox', { name: /username/i })
-screen.getByRole('heading', { name: /welcome/i, level: 1 })
-screen.getByRole('link', { name: /learn more/i })
-```
-
-**Why**: Matches how users and assistive technology interact with your app. If you can't query by role, it might not be accessible.
-
-**Common Roles**:
-- `button` - buttons
-- `textbox` - text inputs
-- `checkbox` - checkboxes
-- `radio` - radio buttons
-- `link` - links
-- `heading` - headings (use `level` option)
-- `list`, `listitem` - lists
-- `dialog` - modals
-- `alert` - error messages
-- `navigation` - nav elements
-
-**2. getByLabelText** [GOOD]
-```typescript
-// ✅ Good - for form fields with labels
-screen.getByLabelText(/email address/i)
-screen.getByLabelText(/password/i)
-```
-
-**Why**: Forms should have labels. If you can query by label, the form is accessible.
-
-**3. getByPlaceholderText** [USE SPARINGLY]
-```typescript
-// ⚠️ OK - but prefer labels
-screen.getByPlaceholderText(/enter your email/i)
-```
-
-**Why**: Placeholders alone aren't accessible. Use only when no label exists (which should be rare).
-
-**4. getByText** [GOOD FOR NON-INTERACTIVE]
-```typescript
-// ✅ Good - for text content
-screen.getByText(/welcome back/i)
-screen.getByText(/order confirmed/i)
-```
-
-**Why**: Users find text content by reading. Good for paragraphs, headings (if no role needed), etc.
-
-**5. getByDisplayValue** [FORM VALUES]
-```typescript
-// ✅ Good - for current input values
-screen.getByDisplayValue(/john doe/i)
-```
-
-**6. getByAltText** [IMAGES]
-```typescript
-// ✅ Good - for images with alt text
-screen.getByAltText(/company logo/i)
-```
-
-**7. getByTitle** [LAST RESORT]
-```typescript
-// ⚠️ Use sparingly - title attribute not always accessible
-screen.getByTitle(/close/i)
-```
-
-**8. getByTestId** [AVOID WHEN POSSIBLE]
-```typescript
-// ❌ Avoid - doesn't test accessibility
-screen.getByTestId('submit-button')
-
-// ✅ Better - use role
-screen.getByRole('button', { name: /submit/i })
-```
-
-**Why avoid**: Test IDs don't reflect how users interact with your app and don't enforce accessibility.
-
-**When test IDs are acceptable**:
-- Testing third-party components you can't control
-- Unique elements with no semantic meaning
-- Temporary workaround (add TODO comment)
-
----
-
-**Query Variants: get\* vs query\* vs find\***
-
-**get\*** - Synchronous, throws if not found
-```typescript
-// ✅ Use for elements that SHOULD exist
-screen.getByRole('button')
-```
-
-**query\*** - Synchronous, returns null if not found
-```typescript
-// ✅ Use ONLY for asserting non-existence
-expect(screen.queryByRole('alert')).not.toBeInTheDocument()
-
-// ❌ Don't use for positive assertions
-expect(screen.queryByRole('alert')).toBeInTheDocument() // Bad error messages
-```
-
-**find\*** - Asynchronous, waits and throws if not found
-```typescript
-// ✅ Use for elements that appear after async operations
-const button = await screen.findByRole('button', { name: /submit/i })
-```
-
----
-
-**Anti-Patterns to Avoid**:
-
-```typescript
-// ❌ Don't use container.querySelector
-const { container } = render(<Example />)
-const button = container.querySelector('.btn')
-
-// ❌ Don't query by className
-screen.getByClassName('primary-button')
-
-// ❌ Don't query by internal implementation details
-const instance = component.instance()
-instance.handleClick()
-
-// ✅ Query by accessibility and user-facing attributes
-screen.getByRole('button', { name: /submit/i })
-```
-
----
-
-### 3.3 User Interactions
-
-**Use user-event Library** [REQUIRED]:
-
-```typescript
-import { render, screen } from '@testing-library/react'
-import userEvent from '@testing-library/user-event'
-
-test('user can type in input', async () => {
-  // ✅ Setup user-event
-  const user = userEvent.setup()
-  
-  render(<MyForm />)
-  
-  const input = screen.getByRole('textbox', { name: /username/i })
-  
-  // ✅ Use user-event for realistic interactions
-  await user.type(input, 'john_doe')
-  
-  expect(input).toHaveValue('john_doe')
-})
-```
-
-**Common User Interactions**:
-
-**Typing**:
-```typescript
-const user = userEvent.setup()
-await user.type(input, 'Hello world')
-
-// Special keys
-await user.type(input, '{Enter}')
-await user.type(input, '{Escape}')
-await user.type(input, '{Backspace}')
-```
-
-**Clicking**:
-```typescript
-const user = userEvent.setup()
 await user.click(button)
 
-// Double click
-await user.dblClick(button)
-
-// Right click
-await user.pointer({ keys: '[MouseRight]', target: button })
+// ❌ Avoid - low-level, misses events
+fireEvent.change(input, { target: { value: 'hello' } })
 ```
 
-**Selecting**:
-```typescript
-const user = userEvent.setup()
-
-// Select dropdown
-await user.selectOptions(select, 'option1')
-
-// Checkbox
-await user.click(checkbox)
-
-// Radio button
-await user.click(radio)
-```
-
-**Keyboard Navigation**:
-```typescript
-const user = userEvent.setup()
-
-// Tab navigation
-await user.tab()
-await user.tab({ shift: true }) // Shift+Tab
-
-// Arrow keys
-await user.keyboard('{ArrowDown}')
-await user.keyboard('{ArrowUp}')
-```
-
-**When to Use fireEvent** [RARE]:
+### Single assertion in `waitFor`
 
 ```typescript
-import { fireEvent } from '@testing-library/react'
+// ✅ Correct - fast failure
+await waitFor(() => expect(element).toBeInTheDocument())
+expect(element).toHaveTextContent('success')
 
-// ✅ OK - for events user-event doesn't support
-fireEvent.scroll(window, { target: { scrollY: 100 } })
-
-// ✅ OK - for programmatic events (not direct user action)
-fireEvent.error(img)
-```
-
-**Rule**: MUST use `userEvent` for all user interactions. Only use `fireEvent` for events that `userEvent` doesn't support or for programmatic events.
-
----
-
-### 3.4 Async Testing Patterns
-
-**Using find\* Queries** [PREFERRED]:
-
-```typescript
-test('shows success message after save', async () => {
-  render(<SaveButton />)
-  
-  const button = screen.getByRole('button', { name: /save/i })
-  const user = userEvent.setup()
-  await user.click(button)
-  
-  // ✅ Use findBy for async elements
-  const successMessage = await screen.findByRole('alert')
-  expect(successMessage).toHaveTextContent(/saved successfully/i)
-})
-```
-
-**find\* queries**:
-- Automatically wait up to 1000ms (configurable)
-- Throw helpful error if not found
-- Return Promise<Element>
-
----
-
-**Using waitFor** [WHEN NEEDED]:
-
-```typescript
-import { waitFor } from '@testing-library/react'
-
-test('fetches and displays data', async () => {
-  render(<DataComponent />)
-  
-  // ✅ Good - wait for specific assertion
-  await waitFor(() => {
-    expect(screen.getByText(/data loaded/i)).toBeInTheDocument()
-  })
-  
-  // ✅ Additional assertions outside waitFor
-  expect(screen.getByText(/john doe/i)).toBeInTheDocument()
-})
-```
-
-**waitFor Rules**:
-1. MUST have a specific assertion inside callback (not empty)
-2. SHOULD have only ONE assertion inside callback
-3. MUST NOT have side-effects inside callback
-4. MUST NOT use snapshot assertions inside callback
-
-**Anti-Patterns**:
-
-```typescript
-// ❌ Empty callback
-await waitFor(() => {})
-expect(element).toBeInTheDocument()
-
-// ❌ Multiple assertions (delays failure)
+// ❌ Avoid - delays failure to timeout
 await waitFor(() => {
-  expect(element1).toBeInTheDocument()
-  expect(element2).toBeInTheDocument()
+  expect(element).toBeInTheDocument()
+  expect(element).toHaveTextContent('success')
 })
+```
 
-// ❌ Side-effects (runs multiple times)
+### No side-effects in `waitFor`
+
+```typescript
+// ✅ Correct - side-effects outside
+await user.click(button)
+await waitFor(() => expect(result).toBeInTheDocument())
+
+// ❌ Avoid - click runs multiple times
 await waitFor(() => {
   fireEvent.click(button)
-  expect(element).toBeInTheDocument()
-})
-
-// ❌ Snapshot in waitFor
-await waitFor(() => {
-  expect(container).toMatchSnapshot()
-})
-```
-
-**Correct Patterns**:
-
-```typescript
-// ✅ Single assertion in waitFor, rest outside
-await waitFor(() => {
-  expect(element1).toBeInTheDocument()
-})
-expect(element2).toBeInTheDocument()
-expect(element3).toBeInTheDocument()
-
-// ✅ Side-effects outside waitFor
-fireEvent.click(button)
-await waitFor(() => {
-  expect(element).toBeInTheDocument()
-})
-
-// ✅ Snapshot after waitFor
-await waitFor(() => {
-  expect(element).toBeInTheDocument()
-})
-expect(container).toMatchSnapshot()
-```
-
----
-
-**Configuring Timeouts**:
-
-```typescript
-// Increase timeout for specific query
-await screen.findByRole('button', 
-  { name: /submit/i }, 
-  { timeout: 3000 }
-)
-
-// Increase timeout for waitFor
-await waitFor(
-  () => expect(element).toBeInTheDocument(),
-  { timeout: 3000 }
-)
-```
-
----
-
-**Testing Loading States**:
-
-```typescript
-test('shows loading state then data', async () => {
-  render(<DataComponent />)
-  
-  // ✅ Check loading state first
-  expect(screen.getByText(/loading/i)).toBeInTheDocument()
-  
-  // ✅ Wait for data to appear
-  const data = await screen.findByText(/john doe/i)
-  expect(data).toBeInTheDocument()
-  
-  // ✅ Verify loading state is gone
-  expect(screen.queryByText(/loading/i)).not.toBeInTheDocument()
-})
-```
-
----
-
-**When to Use act()** [RARE]:
-
-```typescript
-import { act } from '@testing-library/react'
-
-// ❌ Don't wrap render or fireEvent (already wrapped)
-act(() => render(<Example />))
-
-// ✅ Use act only for manual state updates outside RTL utilities
-act(() => {
-  someExternalStateManager.update()
-})
-```
-
-**Rule**: MUST NOT wrap `render`, `fireEvent`, or `userEvent` in `act()`. They're already wrapped. Only use `act()` for direct state updates outside of RTL utilities.
-
-If you see an act() warning, investigate the cause rather than silencing it. See [Fix the "not wrapped in act(...)" warning](https://kentcdodds.com/blog/fix-the-not-wrapped-in-act-warning).
-
----
-
-## 4. Testing by Component Type
-
-### 4.1 Server Components
-
-**Testing Server Components** (Next.js App Router):
-
-```typescript
-import { render, screen, waitFor } from '@testing-library/react'
-import { Header } from '@/components/layout/header'
-
-// Mock server-side data fetching
-jest.mock('@/lib/aem/aem-client', () => ({
-  getHeaderContent: jest.fn(),
-}))
-
-test('server component renders with data', async () => {
-  const mockData = {
-    logo: { title: 'Logo', Image: { _path: '/logo.png' } },
-    topicNavigation1: { title: 'Home', path: '/' },
-  }
-  
-  ;(getHeaderContent as jest.Mock).mockResolvedValue(mockData)
-  
-  render(<Header />)
-  
-  // Wait for async data
-  await waitFor(() => {
-    expect(screen.getByText('Home')).toBeInTheDocument()
-  })
-})
-```
-
-**Suspense Boundaries**:
-
-```typescript
-test('shows fallback while loading', () => {
-  (getHeaderContent as jest.Mock).mockImplementation(
-    () => new Promise(() => {}) // Never resolves
-  )
-  
-  render(<Header />)
-  
-  // Verify fallback is shown
-  expect(screen.getByLabelText('Loading header')).toBeInTheDocument()
-})
-```
-
-**Error Boundaries**:
-
-```typescript
-test('handles error gracefully', async () => {
-  const consoleErrorSpy = jest.spyOn(console, 'error').mockImplementation()
-  
-  (getHeaderContent as jest.Mock).mockRejectedValue(new Error('Failed'))
-  
-  render(<Header />)
-  
-  await waitFor(() => {
-    expect(screen.getByText(/error/i)).toBeInTheDocument()
-  })
-  
-  consoleErrorSpy.mockRestore()
-})
-```
-
----
-
-### 4.2 Client Components
-
-**Testing Client Components** (with state and effects):
-
-```typescript
-import { render, screen } from '@testing-library/react'
-import userEvent from '@testing-library/user-event'
-import { Counter } from '@/components/counter'
-
-test('increments counter on click', async () => {
-  const user = userEvent.setup()
-  
-  render(<Counter initialCount={0} />)
-  
-  const button = screen.getByRole('button', { name: /increment/i })
-  const count = screen.getByText(/count: 0/i)
-  
-  expect(count).toBeInTheDocument()
-  
-  await user.click(button)
-  
-  expect(screen.getByText(/count: 1/i)).toBeInTheDocument()
-})
-```
-
-**Testing useEffect**:
-
-```typescript
-test('fetches data on mount', async () => {
-  global.fetch = jest.fn(() =>
-    Promise.resolve({
-      json: () => Promise.resolve({ data: 'test' }),
-    })
-  ) as jest.Mock
-  
-  render(<DataComponent />)
-  
-  // Wait for effect to complete
-  const data = await screen.findByText(/test/i)
-  expect(data).toBeInTheDocument()
-  
-  expect(global.fetch).toHaveBeenCalledTimes(1)
-})
-```
-
----
-
-### 4.3 Forms & User Input
-
-**Form Submission**:
-
-```typescript
-test('submits form with user input', async () => {
-  const handleSubmit = jest.fn()
-  const user = userEvent.setup()
-  
-  render(<GoalInputForm onSubmit={handleSubmit} />)
-  
-  const textarea = screen.getByRole('textbox')
-  const submitButton = screen.getByRole('button', { name: /submit/i })
-  
-  // Type in input
-  await user.type(textarea, 'Open a coffee shop')
-  
-  // Submit form
-  await user.click(submitButton)
-  
-  // Verify handler called
-  expect(handleSubmit).toHaveBeenCalledTimes(1)
-  expect(handleSubmit).toHaveBeenCalledWith({ goal: 'Open a coffee shop' })
-})
-```
-
-**Form Validation**:
-
-```typescript
-test('shows error for invalid input', async () => {
-  const user = userEvent.setup()
-  
-  render(<EmailForm />)
-  
-  const input = screen.getByRole('textbox', { name: /email/i })
-  const submitButton = screen.getByRole('button', { name: /submit/i })
-  
-  // Enter invalid email
-  await user.type(input, 'invalid-email')
-  await user.click(submitButton)
-  
-  // Verify error message
-  const error = await screen.findByRole('alert')
-  expect(error).toHaveTextContent(/valid email/i)
-})
-```
-
-**Testing Controlled Inputs**:
-
-```typescript
-test('controlled input updates on change', async () => {
-  const user = userEvent.setup()
-  
-  render(<ControlledInput />)
-  
-  const input = screen.getByRole('textbox')
-  
-  await user.type(input, 'Hello')
-  
-  expect(input).toHaveValue('Hello')
-})
-```
-
----
-
-### 4.4 Data Fetching & API (React Query)
-
-**Mocking React Query**:
-
-```typescript
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { renderHook, waitFor } from '@testing-library/react'
-import { useHeaderContent } from '@/hooks/use-aem-content'
-
-test('hook fetches header content', async () => {
-  const queryClient = new QueryClient({
-    defaultOptions: {
-      queries: { retry: false },
-    },
-  })
-  
-  const wrapper = ({ children }: { children: React.ReactNode }) => (
-    <QueryClientProvider client={queryClient}>
-      {children}
-    </QueryClientProvider>
-  )
-  
-  global.fetch = jest.fn(() =>
-    Promise.resolve({
-      ok: true,
-      json: () => Promise.resolve({ headerByPath: { item: mockData } }),
-    })
-  ) as jest.Mock
-  
-  const { result } = renderHook(() => useHeaderContent(), { wrapper })
-  
-  await waitFor(() => expect(result.current.isSuccess).toBe(true))
-  
-  expect(result.current.data).toEqual(mockData)
-})
-```
-
-**Testing Loading States**:
-
-```typescript
-test('shows loading state', () => {
-  const queryClient = new QueryClient()
-  
-  render(
-    <QueryClientProvider client={queryClient}>
-      <DataComponent />
-    </QueryClientProvider>
-  )
-  
-  expect(screen.getByText(/loading/i)).toBeInTheDocument()
-})
-```
-
-**Testing Error States**:
-
-```typescript
-test('shows error state on fetch failure', async () => {
-  global.fetch = jest.fn(() =>
-    Promise.reject(new Error('Network error'))
-  ) as jest.Mock
-  
-  const queryClient = new QueryClient({
-    defaultOptions: {
-      queries: { retry: false },
-    },
-  })
-  
-  render(
-    <QueryClientProvider client={queryClient}>
-      <DataComponent />
-    </QueryClientProvider>
-  )
-  
-  const error = await screen.findByRole('alert')
-  expect(error).toHaveTextContent(/error/i)
-})
-```
-
----
-
-## 5. Integration & E2E Testing
-
-### 5.1 Integration Testing Patterns
-
-**Integration tests** verify multiple components/modules work together correctly.
-
-**API Integration with MSW**:
-
-```typescript
-import { rest } from 'msw'
-import { setupServer } from 'msw/node'
-import { render, screen, waitFor } from '@testing-library/react'
-
-const server = setupServer(
-  rest.post('/api/checklists', (req, res, ctx) => {
-    return res(
-      ctx.json({
-        success: true,
-        data: {
-          checklist: {
-            intents: [
-              { id: '1', name: 'Business License', credentials: [] },
-            ],
-          },
-        },
-      })
-    )
-  })
-)
-
-beforeAll(() => server.listen())
-afterEach(() => server.resetHandlers())
-afterAll(() => server.close())
-
-test('full flow: input goal and see results', async () => {
-  const user = userEvent.setup()
-  
-  render(<App />)
-  
-  // Enter goal
-  const input = screen.getByRole('textbox')
-  await user.type(input, 'Open a coffee shop')
-  
-  // Submit
-  const button = screen.getByRole('button', { name: /submit/i })
-  await user.click(button)
-  
-  // Wait for results
-  const result = await screen.findByText('Business License')
   expect(result).toBeInTheDocument()
 })
 ```
 
-**Testing Navigation**:
+## 5. Project Test Structure
 
-```typescript
-import { useRouter } from 'next/navigation'
-
-jest.mock('next/navigation', () => ({
-  useRouter: jest.fn(),
-}))
-
-test('navigates to results page on submit', async () => {
-  const mockPush = jest.fn()
-  (useRouter as jest.Mock).mockReturnValue({ push: mockPush })
-  
-  const user = userEvent.setup()
-  
-  render(<HomePage />)
-  
-  const input = screen.getByRole('textbox')
-  await user.type(input, 'test goal')
-  
-  const button = screen.getByRole('button', { name: /submit/i })
-  await user.click(button)
-  
-  await waitFor(() => {
-    expect(mockPush).toHaveBeenCalledWith('/results?goal=test+goal')
-  })
-})
+```
+__tests__/
+├── accessibility/      # jest-axe tests
+├── components/         # Unit tests (mirrors components/)
+├── hooks/              # Custom hook tests
+├── integration/        # Multi-component flows
+└── lib/                # Utility function tests
 ```
 
----
+**Reference Implementation:**
 
-### 5.2 E2E Testing with Playwright
+- Custom render helper: `@__tests__/test-utils.tsx`
+- Hook test example: `@__tests__/hooks/use-header-content.test.tsx`
+- Component test example: `@__tests__/components/layout/header.test.tsx`
 
-**When to Use E2E Tests**:
-- Critical user flows (signup, checkout, etc.)
-- Cross-browser compatibility
-- Real network requests
-- Full application integration
+## 6. Test Patterns by Type
 
-**E2E Test Example** (Playwright):
+### Component Test
 
 ```typescript
-import { test, expect } from '@playwright/test'
+import { render, screen } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
 
-test('user can complete goal submission flow', async ({ page }) => {
-  await page.goto('http://localhost:3000')
-  
-  // Fill in goal
-  await page.getByRole('textbox').fill('Open a coffee shop')
-  
-  // Submit
-  await page.getByRole('button', { name: /submit/i }).click()
-  
-  // Wait for results
-  await expect(page).toHaveURL(/\/results/)
-  await expect(page.getByText('Business License')).toBeVisible()
-})
-```
-
-**E2E vs Integration**:
-- **E2E**: Real browser, real network, tests entire system
-- **Integration**: Jest/RTL, mocked APIs, tests component interactions
-
-**Rule**: Use integration tests for most scenarios. Reserve E2E for critical paths only.
-
----
-
-## 6. Accessibility Testing
-
-**Cross-Reference**: For comprehensive accessibility testing guidelines, see:
-- `.cursor/rules/accessibility.mdc` - Section 10: Testing Strategy
-- `docs/ACCESSIBILITY.md` - Main accessibility documentation
-- `docs/accessibility/WCAG-CHECKLIST.md` - WCAG compliance checklist
-
-### 6.1 Automated Accessibility Testing
-
-**jest-axe Integration**:
-
-```typescript
-import { render } from '@testing-library/react'
-import { axe, toHaveNoViolations } from 'jest-axe'
-
-expect.extend(toHaveNoViolations)
-
-test('component has no accessibility violations', async () => {
-  const { container } = render(<MyComponent />)
-  
-  const results = await axe(container)
-  
-  expect(results).toHaveNoViolations()
-})
-```
-
-**Testing Specific WCAG Rules**:
-
-```typescript
-test('form has proper labels', async () => {
-  const { container } = render(
-    <form>
-      <label htmlFor="email">Email</label>
-      <input id="email" type="email" />
-    </form>
-  )
-  
-  const results = await axe(container, {
-    rules: {
-      'label': { enabled: true },
-    },
-  })
-  
-  expect(results).toHaveNoViolations()
-})
-```
-
-**Running Accessibility Tests**:
-
-```bash
-# Run all accessibility tests
-npm test -- __tests__/accessibility/
-
-# Specific accessibility test suites
-npm test -- __tests__/accessibility/wcag-compliance.test.tsx
-npm test -- __tests__/accessibility/keyboard-navigation.test.tsx
-npm test -- __tests__/accessibility/screen-reader.test.tsx
-```
-
-### 6.2 Manual Accessibility Testing
-
-**Keyboard Navigation**:
-See `docs/accessibility/KEYBOARD-NAVIGATION.md` for detailed procedures.
-
-**Screen Reader Testing**:
-See `docs/accessibility/SCREEN-READER-TESTING.md` for testing with NVDA, VoiceOver, and TalkBack.
-
-**Color Contrast**:
-See `docs/accessibility/COLOR-CONTRAST.md` for contrast verification.
-
----
-
-## 7. Test Quality & Maintenance
-
-### 7.1 Test Organization
-
-**AAA Pattern** (Arrange, Act, Assert):
-
-```typescript
-test('user can submit form', async () => {
-  // Arrange - setup test
-  const handleSubmit = jest.fn()
-  const user = userEvent.setup()
-  render(<Form onSubmit={handleSubmit} />)
-  
-  // Act - perform action
-  const input = screen.getByRole('textbox')
-  await user.type(input, 'test data')
-  await user.click(screen.getByRole('button', { name: /submit/i }))
-  
-  // Assert - verify result
-  expect(handleSubmit).toHaveBeenCalledWith({ data: 'test data' })
-})
-```
-
-**Descriptive Test Names**:
-
-```typescript
-// ❌ Bad - vague
-test('it works', () => {})
-test('form test', () => {})
-
-// ✅ Good - describes behavior
-test('shows error when email is invalid', () => {})
-test('submits form data when user clicks submit button', () => {})
-test('disables submit button while request is pending', () => {})
-```
-
-**No Magic Strings in Tests**:
-
-```typescript
-// ❌ Bad - magic values
-expect(screen.getByText('Submit')).toBeInTheDocument()
-expect(response.status).toBe(200)
-
-// ✅ Good - named constants
-const SUBMIT_BUTTON_TEXT = 'Submit'
-const HTTP_OK = 200
-
-expect(screen.getByText(SUBMIT_BUTTON_TEXT)).toBeInTheDocument()
-expect(response.status).toBe(HTTP_OK)
-```
-
----
-
-### 7.2 Common Pitfalls
-
-**Avoid Testing Implementation Details**:
-
-```typescript
-// ❌ Bad - testing internal state
-expect(component.state.count).toBe(1)
-expect(instance.handleClick).toHaveBeenCalled()
-
-// ✅ Good - testing user-visible behavior
-expect(screen.getByText(/count: 1/i)).toBeInTheDocument()
-await user.click(screen.getByRole('button'))
-expect(screen.getByText(/clicked/i)).toBeInTheDocument()
-```
-
-**Avoid Tight Coupling to Structure**:
-
-```typescript
-// ❌ Bad - coupled to DOM structure
-const firstDiv = container.querySelector('div')
-const button = firstDiv.querySelector('button')
-
-// ✅ Good - query by semantics
-const button = screen.getByRole('button', { name: /submit/i })
-```
-
-**Avoid Over-Mocking**:
-
-```typescript
-// ❌ Bad - mocking everything
-jest.mock('@/components/button')
-jest.mock('@/components/input')
-jest.mock('@/lib/utils')
-
-// ✅ Good - only mock external dependencies
-jest.mock('next/navigation')
-global.fetch = jest.fn()
-```
-
-**Test Behavior, Not Implementation**:
-
-```typescript
-// ❌ Bad - testing how (implementation)
-test('calls handleClick when clicked', () => {
+test('button triggers callback on click', async () => {
+  // Arrange
   const handleClick = jest.fn()
-  render(<Button onClick={handleClick} />)
-  
-  fireEvent.click(screen.getByRole('button'))
-  
-  expect(handleClick).toHaveBeenCalled()
-})
+  const user = userEvent.setup()
+  render(<Button onClick={handleClick}>Submit</Button>)
 
-// ✅ Good - testing what (behavior)
-test('shows confirmation message after clicking submit', async () => {
-  render(<Form />)
-  
+  // Act
   await user.click(screen.getByRole('button', { name: /submit/i }))
-  
-  expect(screen.getByText(/submitted successfully/i)).toBeInTheDocument()
+
+  // Assert
+  expect(handleClick).toHaveBeenCalledTimes(1)
 })
 ```
 
----
-
-### 7.3 Migration Notes
-
-**Refactoring Existing Tests**:
-
-When updating existing tests to follow these rules, prioritize:
-
-1. **High Priority**:
-   - Convert `queryBy*` to `getBy*` for positive assertions
-   - Remove empty `waitFor` callbacks
-   - Move side-effects out of `waitFor`
-   - Replace `fireEvent` with `userEvent`
-
-2. **Medium Priority**:
-   - Add `screen` usage
-   - Remove manual `cleanup`
-   - Convert multiple `waitFor` assertions to single assertion
-   - Install ESLint plugins
-
-3. **Low Priority**:
-   - Rename `wrapper` variables
-   - Add explicit `toBeInTheDocument` assertions
-
-**Example Migration**:
+### Hook Test
 
 ```typescript
-// ❌ Before
-test('old pattern', async () => {
-  const { getByRole } = render(<Example />)
-  
-  await waitFor(() => {})
-  
-  fireEvent.click(getByRole('button'))
-  
-  await waitFor(() => {
-    expect(getByRole('alert')).toBeInTheDocument()
-    expect(getByRole('alert')).toHaveTextContent(/success/i)
-  })
-})
+import { renderHook, waitFor } from '@testing-library/react'
 
-// ✅ After
-test('improved pattern', async () => {
-  const user = userEvent.setup()
-  
-  render(<Example />)
-  
-  await user.click(screen.getByRole('button'))
-  
-  await waitFor(() => {
-    expect(screen.getByRole('alert')).toBeInTheDocument()
-  })
-  expect(screen.getByRole('alert')).toHaveTextContent(/success/i)
+test('hook fetches data', async () => {
+  const { result } = renderHook(() => useData())
+
+  await waitFor(() => expect(result.current.isSuccess).toBe(true))
+  expect(result.current.data).toEqual(expectedData)
 })
 ```
 
----
+### Async Component Test
 
-## 8. Resources & References
+```typescript
+test('shows loading then data', async () => {
+  render(<DataComponent />)
 
-### 8.1 External Resources
+  // Loading state
+  expect(screen.getByText(/loading/i)).toBeInTheDocument()
 
-- **Kent C. Dodds**: [Common Mistakes with React Testing Library](https://kentcdodds.com/blog/common-mistakes-with-react-testing-library)
-- **Testing Library Docs**: [https://testing-library.com/docs/react-testing-library/intro/](https://testing-library.com/docs/react-testing-library/intro/)
-- **Testing Library Queries**: [https://testing-library.com/docs/queries/about](https://testing-library.com/docs/queries/about)
-- **jest-dom Matchers**: [https://github.com/testing-library/jest-dom](https://github.com/testing-library/jest-dom)
-- **user-event**: [https://testing-library.com/docs/user-event/intro](https://testing-library.com/docs/user-event/intro)
-- **Playwright**: [https://playwright.dev/](https://playwright.dev/)
-- **MSW (Mock Service Worker)**: [https://mswjs.io/](https://mswjs.io/)
+  // Data loaded
+  await screen.findByText(/john doe/i)
+  expect(screen.queryByText(/loading/i)).not.toBeInTheDocument()
+})
+```
 
-### 8.2 Internal Documentation
+## 7. What ESLint Enforces
 
-- `.cursor/rules/accessibility.mdc` - Accessibility testing requirements
-- `docs/ACCESSIBILITY.md` - Main accessibility documentation
-- `docs/accessibility/KEYBOARD-NAVIGATION.md` - Keyboard testing procedures
-- `docs/accessibility/SCREEN-READER-TESTING.md` - Screen reader testing guide
-- `docs/REACT_QUERY_GUIDE.md` - React Query patterns and testing
+The following are automatically enforced by `eslint-plugin-testing-library` and `eslint-plugin-jest-dom`:
 
-### 8.3 Example Tests in Codebase
+| Rule                         | ESLint Rule                                                      |
+| ---------------------------- | ---------------------------------------------------------------- |
+| Use `screen` for queries     | `testing-library/prefer-screen-queries`                          |
+| Use `findBy*` for async      | `testing-library/prefer-find-by`                                 |
+| No `container.querySelector` | `testing-library/no-container`, `testing-library/no-node-access` |
+| No side-effects in `waitFor` | `testing-library/no-wait-for-side-effects`                       |
+| No empty `waitFor` callback  | `testing-library/no-wait-for-empty-callback`                     |
+| No manual cleanup            | `testing-library/no-manual-cleanup`                              |
+| No unnecessary act           | `testing-library/no-unnecessary-act`                             |
+| Use jest-dom matchers        | `jest-dom/prefer-*` rules                                        |
 
-**Component Tests**:
-- `__tests__/components/layout/header.test.tsx` - Server component testing
-- `__tests__/components/layout/mobile-menu.test.tsx` - Client component with interactions
-- `__tests__/forms/goal-input-form.test.tsx` - Form testing with user-event
+See `eslint.config.mjs` for full configuration.
 
-**Integration Tests**:
-- `__tests__/integration/api-results-flow.test.tsx` - API integration patterns
-- `__tests__/integration/navigation.test.tsx` - Navigation testing
+## 8. Cross-References
 
-**Accessibility Tests**:
-- `__tests__/accessibility/wcag-compliance.test.tsx` - jest-axe usage
-- `__tests__/accessibility/keyboard-navigation.test.tsx` - Keyboard interaction testing
-
-**Hook Tests**:
-- `__tests__/hooks/use-aem-content.test.tsx` - React Query hook testing
-
----
-
-## Summary
-
-This document provides comprehensive guidelines for frontend testing with React Testing Library, Jest, and related tools. Key priorities:
-
-1. **[CRITICAL]** Use correct queries (`getBy*` for existence, `query*` only for non-existence, `find*` for async)
-2. **[CRITICAL]** Use `userEvent` instead of `fireEvent`
-3. **[CRITICAL]** Proper `waitFor` usage (no empty callbacks, no side-effects, single assertion)
-4. **[IMPORTANT]** Install ESLint plugins (`eslint-plugin-testing-library`, `eslint-plugin-jest-dom`)
-5. **[IMPORTANT]** Use `screen` for all queries
-6. **[IMPORTANT]** Use `@testing-library/jest-dom` matchers
-
-Following these patterns ensures tests are maintainable, accessible, and catch real bugs.
+- Accessibility testing: `accessibility.mdc` Section 10
+- Testing principles for planning: `frontend-testing-principles.mdc`
+- Kent C. Dodds: [Common Mistakes with React Testing Library](https://kentcdodds.com/blog/common-mistakes-with-react-testing-library)
+- Testing Library Docs: [https://testing-library.com/docs/react-testing-library/intro/](https://testing-library.com/docs/react-testing-library/intro/)

@@ -1,966 +1,153 @@
 ---
-globs: *.tsx,*.ts,*.js,*.test.tsx,*.test.ts,*.spec.ts,next.config.ts,*.md
+description: 'Next.js App Router patterns, Server/Client Components, TypeScript strict mode, and React best practices. Apply when building or reviewing React components and pages.'
+globs: *.tsx,*.ts,*.js,*.test.tsx,*.test.ts,*.spec.ts,next.
+config.ts,*.md
 alwaysApply: false
 ---
-You are an expert full-stack developer proficient in TypeScript, React, Next.js, and modern UI/UX frameworks (Tailwind CSS, shadcn/ui, Radix UI). Your task is to produce optimized and maintainable Next.js code, following best practices and adhering to clean code principles.
 
-## 1. Project Structure & Naming Conventions
+# Next.js Web Standards
 
-### 1.1 Project Structure
-- **Source Root**: All application source code resides at the project root (no `src/` directory).
-- **Logical Folders**: Use a clear, logical folder structure at the project root:
-  - `app/`: Next.js App Router pages, layouts, and API routes
-  - `components/`: React components organized by type and domain (see `component-architecture.mdc` for full details):
-    - `components/ui/`: shadcn/ui primitives only (Button, Card, Input, etc.)
-    - `components/shared/`: Cross-cutting reusable components (accessibility utilities)
-    - `components/layout/`: App shell components (header/, footer/, hero/, breadcrumb, logo)
-    - `components/providers/`: React context providers (auth-provider, query-provider)
-    - `components/features/`: Domain-specific business components (wizard/, checklist/, auth/)
-    - `components/aem/`: AEM content-driven components (pages/, nav-cards/, helpful-links/, qa/, toolkit/)
-  - `lib/`: Utility functions, helper libraries, and API clients
-  - `hooks/`: Custom React hooks
-  - `types/`: Shared TypeScript types and interfaces
-- **Colocation**: Group related files together. A component's test files should be placed in the same directory as the component itself.
-- **No Barrel Exports**: Import components directly from their files, not from index.ts barrel exports. This enables better tree-shaking.
+## 1. Project Structure
 
-### 1.2 Naming Conventions
-- **Components**: Use **kebab-case** for component file names (e.g., `header.tsx`, `product-card.tsx`). Use **PascalCase** for the exported component name within the file.
-- **Pages & Layouts**: Use **kebab-case** for folder names in the `app/` router. The page component file itself should be named `page.tsx` and the layout component file `layout.tsx` (e.g., `app/products/[slug]/page.tsx`)
-- **Custom Hooks**: Prefix all custom hooks with **`use`** (e.g., `useUser`, `useAuth`)
-- **Files & Folders (Non-Component)**: Use **kebab-case** for all other file and folder names (e.g., `fetch-data.ts`, `api/products/route.ts`)
-- **Variables & Functions**: Use **camelCase** for all variables, functions, and props
-- **Types & Interfaces**: Use **PascalCase** for all custom TypeScript interfaces and types
-
-### 1.3 Export Patterns
-- **Default Exports**: Use default exports ONLY for Next.js special files that require them by convention:
-  - `page.tsx` - Page components
-  - `layout.tsx` - Layout components
-  - `loading.tsx`, `error.tsx`, `not-found.tsx`, `template.tsx` - Other Next.js special files
-- **Named Exports**: Use named exports for everything else:
-  - All components in `components/` directory
-  - Custom hooks
-  - Utility functions
-  - Types and interfaces
-  - API route handlers (GET, POST, PUT, DELETE, etc.)
-
-**Rationale**: Named exports provide better IDE support, easier refactoring, and make component names explicit at import sites.
-
----
-
-## 2. TypeScript Best Practices
-
-### 2.1 Type Safety
-- **Explicit Typing**: Always define types for props, state, custom hook returns, and complex variables. Rely on inference only for simple, obvious cases.
-- **Forbid `any`**: The use of the `any` type is **forbidden**. Use `unknown` instead and perform type narrowing. Only use `unknown` when it is impossible to know the type.
-- **Interfaces vs Type Aliases**: Use both appropriately:
-  - **Interfaces**: For object contracts, public APIs, and extensible shapes
-  - **Type aliases**: For unions, utilities, and when advanced type features are needed
-- **Generics**: Use generics to create reusable components and hooks that can handle different data types (best practice, not mandatory)
-
-### 2.2 Type Organization
-- Define types close to where they're used, or in shared `types/` directory for common types
-- Export types that are used across multiple files
-- Use JSDoc comments for functions and components to improve IDE intellisense
-
-### 2.3 Constants and Magic Strings
-- **No Magic Strings**: Avoid magic strings and numbers in code. Define constants with descriptive names instead
-- **User-Facing Text Must Be Constants**: All user-facing text (labels, placeholders, help text, button text, error messages) MUST be extracted as constants. This prepares the codebase for future internationalization (i18n) and centralizes content management.
-- **What Counts as Magic Strings**:
-  - User-facing copy and labels
-  - API endpoints and URLs
-  - Error messages and status codes
-  - Configuration values (thresholds, limits, defaults)
-  - Repeated string values
-- **Centralize Constants**: Group related constants together in constant files or at the top of modules
-- **Type Constants**: Use `as const` assertions or enums for string literal types to ensure type safety
-
-**Examples**:
-```typescript
-// ❌ Bad - inline user-facing text
-<input placeholder="Enter your email" />
-<label>Password</label>
-const error = "Invalid input"
-
-// ✅ Good - extracted constants
-const PLACEHOLDER_EMAIL = "Enter your email"
-const LABEL_PASSWORD = "Password"
-const ERROR_INVALID_INPUT = "Invalid input"
-
-<input placeholder={PLACEHOLDER_EMAIL} />
-<label>{LABEL_PASSWORD}</label>
+```
+app/           # Next.js App Router pages, layouts, API routes
+components/    # React components (see nextjs-component-architecture.mdc)
+lib/           # Utility functions, API clients
+hooks/         # Custom React hooks
+types/         # Shared TypeScript types
 ```
 
----
+**Key Rules:**
 
-## 3. React & Component Best Practices
+- No `src/` directory - source at project root
+- No barrel exports (`index.ts`) - import directly from files
+- Group related files together (colocation)
 
-### 3.1 Code Style and Structure
-- Write concise, technical TypeScript code with accurate examples
-- Use functional and declarative programming patterns; avoid classes
-- Favor iteration and modularization over code duplication
-- Use descriptive variable names with auxiliary verbs (e.g., `isLoading`, `hasError`)
-- Prefer destructuring objects when possible
-- Structure files with exported components, subcomponents, helpers, static content, and types
-- **React Imports**: Import React types directly rather than using namespace syntax (e.g., `import { ReactNode }` instead of `React.ReactNode`)
+## 2. Naming Conventions
 
-### 3.2 Server Components & Client Components
-- **Prioritize Server Components**: Default to Server Components for data fetching. This minimizes client-side JavaScript, improves initial load times, and enhances SEO.
-- **Minimize `'use client'`**: Only use client components when you need interactivity, browser APIs, or React hooks like `useState`, `useEffect`
-- **Data Fetching**: Use the native `fetch` API within Server Components and Route Handlers. Next.js's built-in caching (`'force-cache'`) and revalidation (`revalidate: N`) work seamlessly with it.
-- **Parallel Data Fetching**: Initiate all necessary `fetch` calls in parallel at the top of a component to prevent data-fetching waterfalls
-- **Runtime Secrets & Dynamic Rendering**: When pages depend on runtime environment variables (e.g., secrets injected by cloud platforms), use `export const dynamic = 'force-dynamic'` to prevent static generation at build time
+| Type                | Convention   | Example                         |
+| ------------------- | ------------ | ------------------------------- |
+| Component files     | kebab-case   | `product-card.tsx`              |
+| Component exports   | PascalCase   | `export function ProductCard()` |
+| Page files          | `page.tsx`   | `app/products/[slug]/page.tsx`  |
+| Custom hooks        | `use` prefix | `useAuth`, `useUser`            |
+| Other files         | kebab-case   | `fetch-data.ts`                 |
+| Variables/functions | camelCase    | `isLoading`, `handleClick`      |
+| Types/interfaces    | PascalCase   | `UserProfile`, `ApiResponse`    |
 
-**Runtime Configuration Pattern**:
+## 3. Export Patterns
 
-When deploying to cloud platforms where secrets are injected at runtime (e.g., GCP Secret Manager, AWS Secrets Manager), pages that depend on those secrets must be server-rendered on-demand rather than statically generated at build time.
+**Default exports:** Only for Next.js special files
 
-**Problem**: 
-- Build time: Secrets are not available → Static generation fails or produces pages without data
-- Runtime: Secrets are injected → Pages need to fetch data with valid credentials
+- `page.tsx`, `layout.tsx`, `loading.tsx`, `error.tsx`, `not-found.tsx`
 
-**Solution**:
+**Named exports:** Everything else
+
+- Components, hooks, utilities, types, API handlers
+
 ```typescript
-// app/page.tsx
+// ✅ Component
+export function Button({ children }: ButtonProps) { ... }
+
+// ✅ API route
+export async function GET(request: Request) { ... }
+```
+
+## 4. TypeScript Requirements
+
+- **Forbid `any`**: Use `unknown` with type narrowing
+- **Explicit typing**: Props, state, hook returns, complex variables
+- **User-facing text as constants**: Prepare for i18n
+
+```typescript
+// ❌ Forbidden
+function process(data: any) { ... }
+
+// ✅ Required
+function process(data: unknown) {
+  if (isValidData(data)) { ... }
+}
+
+// ✅ User-facing text
+const LABEL_SUBMIT = 'Submit'
+const ERROR_REQUIRED = 'This field is required'
+```
+
+## 5. Server vs Client Components
+
+**Default to Server Components.** Only use `'use client'` when needed.
+
+| Need                    | Component Type |
+| ----------------------- | -------------- |
+| Data fetching           | Server         |
+| SEO content             | Server         |
+| Static UI               | Server         |
+| `useState`, `useEffect` | Client         |
+| Browser APIs            | Client         |
+| Event handlers          | Client         |
+
+**Runtime Secrets Pattern:**
+
+```typescript
+// Pages that need runtime secrets (not available at build time)
 export const dynamic = 'force-dynamic'
-
-export default function HomePage() {
-  // Component that fetches data using runtime secrets
-}
 ```
 
-**When to Use**:
-- Pages that fetch data from external services requiring authentication (APIs, CMSs, databases)
-- Layouts with server components that fetch data using runtime credentials (e.g., Header/Footer from CMS)
-- Any page where environment variables contain secrets injected by the deployment platform
-
-**Effect**:
-- ✅ Build succeeds without secrets present
-- ✅ Pages render on each request when secrets are available
-- ✅ API clients get valid credentials from runtime environment
-- ✅ No static generation attempts during build
-
-**Alternative Approaches** (use when appropriate):
-- `export const revalidate = 0` - Similar effect, but different semantics
-- Using `cookies()` or `headers()` in component - Automatically makes page dynamic
-- `searchParams` prop - Makes page dynamic automatically
-
-### 3.3 Custom Hooks
-- **Separate Concerns**: Custom hooks should contain business logic, data fetching, or state management. Components should focus on UI logic and rendering.
-- **Type Custom Hooks**: Always explicitly type the return value of custom hooks
-- **Stable Identities**: Use `useCallback` and `useMemo` to prevent unnecessary re-renders of child components when passing functions or objects as props
-- **Hook Naming**: Always prefix custom hooks with `use`
-
----
-
-## 4. UI & Component Architecture
-
-### 4.1 Styling (Mandatory)
-- **Tailwind CSS**: The primary styling solution is **Tailwind CSS**. All new components and features **must** use Tailwind utility classes.
-- **shadcn/ui**: All components **must** be built using `shadcn/ui` primitives. Avoid creating new components from scratch that duplicate existing shadcn functionalities.
-- **CSS Variables**: Use CSS variables for theming system
-- **Responsive Design**: Use responsive design with a mobile-first approach
-
-### 4.2 Component Patterns
-- Keep components small and focused on a single responsibility
-- Extract reusable logic into custom hooks
-- Use composition over prop drilling
-- Implement proper error boundaries for error handling
-- **Separate Positioning from Component Styling**: Use wrapper elements to separate layout/positioning concerns from component-specific styling
-  - **Component classes**: Intrinsic styling (size, colors, padding, borders, accessibility enhancements)
-  - **Wrapper classes**: Extrinsic positioning (absolute, relative, flex positioning, z-index, top, left, right, bottom)
-
-**Example**:
-```tsx
-// ❌ Mixing positioning with component styling
-<Button className="absolute bottom-4 right-4 z-10 size-9 rounded-md p-2">
-  <Icon />
-</Button>
-
-// ✅ Separated concerns - positioning in wrapper, styling on component
-<div className="absolute bottom-4 right-4 z-10">
-  <Button className="size-9 rounded-md p-2">
-    <Icon />
-  </Button>
-</div>
-```
-
----
-
-## 5. Performance & Optimization
-
-### 5.1 Next.js Optimization Features
-- **Image Optimization**: Use the **`next/image`** component for all images. Configure a loader if needed for external image sources.
-- **Link Optimization**: Use the **`next/link`** component for all internal navigation to enable client-side routing
-- **Font Optimization**: Use the **`next/font`** module for all fonts to prevent layout shift and improve load times
-- **Dynamic Imports**: Use **`next/dynamic`** to lazy-load components that are not essential for the initial page load
-
-### 5.2 Code Splitting
-- Implement dynamic imports for code splitting and optimization
-- Lazy load heavy components and third-party libraries
-- Use React Suspense boundaries appropriately
-
----
-
-## 6. State Management & Data Fetching
-
-### 6.1 TanStack React Query
-- **Server-Side Integration**: Use TanStack React Query on the server side with Next.js Server Components for data fetching, caching, and state management
-- **Hydration Pattern**: Leverage React Query's hydration features to prefetch data on the server and seamlessly hydrate it on the client
-- **Works with Fetch**: React Query does not replace `fetch`. It is used in conjunction with fetch for better state management, caching, and synchronization
-- **Client-Side Mutations**: Use React Query for client-side data mutations, refetching, and real-time updates
-
-### 6.2 State Management Patterns
-- Use TanStack React Query for server state (data from APIs) on both server and client
-- Minimize the use of `useState` and `useEffect`; favor React Query patterns
-- Use React Context only when state management cannot be easily managed in a parent/child component relationship
-- Keep state as close to where it's used as possible
-
----
-
-## 7. Error Handling & Validation
-
-### 7.1 Error Handling Patterns
-- Prioritize error handling and edge cases
-- Use early returns for error conditions
-- Implement guard clauses to handle preconditions and invalid states early
-- Use custom error types for consistent error handling
-- Implement proper error boundaries in React
-- **No Console Logging**: Do not use `console.log`, `console.warn`, `console.error`, or any other console methods in production code. Use proper logging libraries or error tracking services instead 
-
-### 7.2 Validation
-- Implement user input validation on both client and server
-- Use type-safe validation libraries (e.g., Zod) for runtime validation
-- Validate data at API boundaries
-
----
-
-**Note**: For comprehensive testing guidelines, see `.cursor/rules/frontend-testing.mdc`
-
----
-
-## 8. Security & Performance
-
-### 8.1 Security Best Practices
-- Implement proper error handling and user input validation
-- Follow secure coding practices (sanitize inputs, avoid XSS)
-- Use environment variables for sensitive configuration
-- Implement proper authentication and authorization checks
-- Validate and sanitize data at API boundaries
-
-### 8.2 Performance Optimization
-- Follow performance optimization techniques: reduce load times, improve rendering efficiency
-- Monitor and optimize Core Web Vitals
-- Use React Profiler to identify performance bottlenecks
-- Implement proper caching strategies
-
----
-
-## 9. Documentation
-
-### 9.1 Code Documentation
-- **Self-Documenting Code First**: If logic is so complex that it requires extensive comments, prioritize improving naming and reducing complexity instead. Question why the code is complex before adding documentation.
-- **Comments Explain "Why", Not "What"**: Code should be self-explanatory through clear naming and structure. Use comments to explain business logic, edge cases, or non-obvious decisions, not to describe what the code does.
-- **JSDoc for Public APIs**: Use JSDoc comments for public functions, components, and APIs to improve IDE intellisense
-- **Document Interfaces**: Document public APIs and interfaces with clear contracts
-- **Keep README Current**: Keep README files up to date with setup instructions and project conventions
-
-### 9.2 Type Documentation
-- Use TypeScript's type system as documentation
-- Add JSDoc comments for complex types and interfaces
-- Document expected prop values and component usage
-
----
-
-## 10. Anti-Patterns Checklist
-
-This section documents common mistakes and anti-patterns specific to TypeScript/React/Next.js that should be flagged during code review as **SHOULD FIX (Critical Best Practices)** with appropriate severity levels.
-
-### 10.1 Performance Anti-Patterns
-
-#### Synchronous Blocking Operations in Hot Paths [HIGH]
-
-**Problem**: localStorage/sessionStorage writes on every state change block the main thread.
-
-```typescript
-// ❌ Bad - writes on every keystroke
-useEffect(() => {  
-  localStorage.setItem('state', JSON.stringify(state))
-}, [state])
-
-// ✅ Good - debounced writes (500ms delay)
-useEffect(() => {  
-  const timeoutId = setTimeout(() => {
-    localStorage.setItem('state', JSON.stringify(state))
-  }, 500)
-  return () => clearTimeout(timeoutId)
-}, [state])
-
-// ✅ Alternative - save only on significant events
-useEffect(() => {  
-  localStorage.setItem('state', JSON.stringify(state))
-}, [state.currentStep]) // Only save when step changes, not on text input
-```
-
-**Impact**: Degrades UX, especially on slower devices. Each write can take 1-5ms, blocking user interactions.
-
----
-
-#### Missing Memoization for Expensive Operations [MEDIUM]
-
-**Problem**: Expensive computations re-run on every render.
-
-```typescript
-// ❌ Bad - recalculates on every render
-function Component({ items }: { items: Item[] }) {
-  const sortedItems = items
-    .map(item => ({ ...item, score: calculateComplexScore(item) }))
-    .sort((a, b) => b.score - a.score)
-  
-  return <List data={sortedItems} />
-}
-
-// ✅ Good - memoized
-function Component({ items }: { items: Item[] }) {
-  const sortedItems = useMemo(
-    () => items
-      .map(item => ({ ...item, score: calculateComplexScore(item) }))
-      .sort((a, b) => b.score - a.score),
-    [items]
-  )
-  
-  return <List data={sortedItems} />
-}
-```
-
-**When to use**: Operations taking >5ms, array transformations with >100 items, recursive calculations.
-
----
-
-#### Unbounded List Rendering [HIGH]
-
-**Problem**: Rendering large lists (>100 items) without virtualization.
-
-```typescript
-// ❌ Bad - renders all 10,000 items
-{items.map(item => <ItemCard key={item.id} {...item} />)}
-
-// ✅ Good - virtualized rendering (react-window)
-import { FixedSizeList } from 'react-window'
-
-<FixedSizeList
-  height={600}
-  itemCount={items.length}
-  itemSize={80}
-  width="100%"
->
-  {({ index, style }) => (
-    <div style={style}>
-      <ItemCard {...items[index]} />
-    </div>
-  )}
-</FixedSizeList>
-```
-
-**Threshold**: Use virtualization for lists with >100-200 items, or if item rendering is expensive.
-
----
-
-#### Multiple Sequential API Calls (Waterfall) [MEDIUM]
-
-**Problem**: Dependent API calls that could be parallelized.
-
-```typescript
-// ❌ Bad - sequential (3 seconds total if each takes 1s)
-const user = await fetchUser(id)
-const posts = await fetchPosts(user.id)
-const comments = await fetchComments(user.id)
-
-// ✅ Good - parallel (1 second total)
-const [user, posts, comments] = await Promise.all([
-  fetchUser(id),
-  fetchPosts(id),  // If posts/comments don't depend on user data
-  fetchComments(id)
-])
-```
-
-**Note**: Only parallelize truly independent calls. Maintain sequential calls when data dependencies exist.
-
----
-
-#### Missing Dependencies in useEffect [HIGH]
-
-**Problem**: useEffect with incomplete dependency array causes stale closures and bugs.
-
-```typescript
-// ❌ Bad - userId changes not tracked
-useEffect(() => {
-  fetchData(userId)
-}, []) // Missing userId dependency!
-
-// ✅ Good - complete dependencies
-useEffect(() => {
-  fetchData(userId)
-}, [userId])
-
-// ✅ Alternative - if callback needs to be stable
-const fetchDataCallback = useCallback(() => {
-  fetchData(userId)
-}, [userId])
-
-useEffect(() => {
-  fetchDataCallback()
-}, [fetchDataCallback])
-```
-
-**Rule**: Always include ALL external values used inside useEffect. Use ESLint rule `react-hooks/exhaustive-deps`.
-
----
-
-### 10.2 React/Next.js Anti-Patterns
-
-#### Missing Error Boundaries [HIGH]
-
-**Problem**: Async operations or external data fetching without error boundaries allow entire app to crash.
-
-```typescript
-// ❌ Bad - no error boundary
-export default function Page() {
-  return <ComponentThatMightThrow />
-}
-
-// ✅ Good - wrapped in error boundary
-import { ErrorBoundary } from '@/components/error-boundary'
-
-export default function Page() {
-  return (
-    <ErrorBoundary fallback={<ErrorFallback />}>
-      <ComponentThatMightThrow />
-    </ErrorBoundary>
-  )
-}
-```
-
-**Where to add**: Around async data fetching, third-party components, dynamic imports, user-generated content.
-
-**Reference**: See Section 7.1 for error boundary implementation patterns.
-
----
-
-#### Client-Side Data Fetching When Server Components Would Work [MEDIUM]
-
-**Problem**: Unnecessarily shipping data fetching logic to the client.
-
-```typescript
-// ❌ Bad - client-side fetch for static data
-'use client'
-
-export default function Page() {
-  const [data, setData] = useState(null)
-  
-  useEffect(() => {
-    fetch('/api/data')
-      .then(r => r.json())
-      .then(setData)
-  }, [])
-  
-  if (!data) return <Loading />
-  return <div>{data.title}</div>
-}
-
-// ✅ Good - server component with async fetch
-export default async function Page() {
-  const data = await fetch('/api/data', {
-    next: { revalidate: 3600 } // Cache for 1 hour
-  }).then(r => r.json())
-  
-  return <div>{data.title}</div>
-}
-```
-
-**When to use client**: User interactions, browser APIs (localStorage, geolocation), real-time updates, client-specific state.
-
-**Reference**: See Section 3.2 for Server vs Client Component guidance.
-
----
-
-#### Using Index as Key for Dynamic Lists [MEDIUM]
-
-**Problem**: Index keys break React reconciliation when list order changes.
-
-```typescript
-// ❌ Bad - index as key (breaks on reorder/filter)
-{items.map((item, index) => (
-  <Item key={index} {...item} />
-))}
-
-// ✅ Good - stable unique ID
-{items.map(item => (
-  <Item key={item.id} {...item} />
-))}
-
-// ✅ Acceptable - if list never reorders and items are primitives
-{staticList.map((label, index) => (
-  <span key={`label-${index}`}>{label}</span>
-))}
-```
-
-**Rule**: Only use index as key if: list is static, items never reorder/filter, and items are primitives.
-
----
-
-#### Direct DOM Manipulation [HIGH]
-
-**Problem**: Using `document.querySelector`, `document.getElementById`, `document.createElement`, or `element.addEventListener` bypasses React's virtual DOM and can cause reconciliation conflicts, memory leaks, and unpredictable behavior.
-
-```typescript
-// ❌ Bad - imperative DOM query
-useEffect(() => {
-  const element = document.getElementById('my-element')
-  if (element) {
-    element.focus()
-  }
-}, [])
-
-// ❌ Bad - querySelector to find child elements
-const closeButton = containerRef.current?.querySelector('button')
-closeButton?.focus()
-
-// ❌ Bad - global event listeners
-useEffect(() => {
-  document.addEventListener('keydown', handleKeyDown)
-  return () => document.removeEventListener('keydown', handleKeyDown)
-}, [])
-
-// ❌ Bad - imperative DOM creation
-const container = document.createElement('div')
-container.style.position = 'absolute'
-document.body.appendChild(container)
-```
-
-```typescript
-// ✅ Good - use refs for elements in the same component
-const elementRef = useRef<HTMLDivElement>(null)
-
-useEffect(() => {
-  elementRef.current?.focus()
-}, [])
-
-<div ref={elementRef} tabIndex={-1}>...</div>
-
-// ✅ Good - use dedicated refs instead of querySelector
-const closeButtonRef = useRef<HTMLButtonElement>(null)
-
-useEffect(() => {
-  closeButtonRef.current?.focus()
-}, [isOpen])
-
-<Button ref={closeButtonRef}>Close</Button>
-
-// ✅ Good - use React event handlers instead of addEventListener
-<div onKeyDown={handleKeyDown}>...</div>
-
-// ✅ Good - if global listeners needed, scope to container element
-<div
-  ref={containerRef}
-  onKeyDown={(e) => {
-    if (e.key === 'Escape') onClose()
-  }}
->
-
-// ✅ Good - use React portals instead of createElement/appendChild
-import { createPortal } from 'react-dom'
-
-{createPortal(
-  <div className="sr-only" role="status" aria-live="polite">
-    {announcement}
-  </div>,
-  document.body
-)}
-```
-
-**Allowed Exceptions**:
-- Browser APIs with no React equivalent: `matchMedia`, `ResizeObserver`, `IntersectionObserver`
-- Third-party library integration that requires DOM access
-- Refs on elements within the same component (using `ref.current` is acceptable)
-
-**Rule**: Never use `document.querySelector`, `document.getElementById`, or `document.createElement` in React components. Use refs for DOM access, React event handlers instead of `addEventListener`, and portals instead of imperative DOM insertion.
-
-**Reference**: See `specifications/dom-manipulation-audit.md` for detailed analysis of existing instances.
-
----
-
-#### Prop Drilling Instead of Context [LOW]
-
-**Problem**: Passing props through 3+ levels of components.
-
-```typescript
-// ❌ Bad - prop drilling through 4 levels
-<App user={user}>
-  <Layout user={user}>
-    <Page user={user}>
-      <Component user={user} />
-
-// ✅ Good - context for widely-used data
-const UserContext = createContext<User | null>(null)
-
-function App() {
-  return (
-    <UserContext.Provider value={user}>
-      <Layout>
-        <Page>
-          <Component /> {/* useContext(UserContext) internally */}
-```
-
-**Threshold**: Use Context when passing data through 3+ levels, or data is needed by many unrelated components.
-
----
-
-### 10.3 Security Anti-Patterns
-
-#### PII or Secrets in localStorage Without Encryption [HIGH]
-
-**Problem**: Sensitive data stored in plaintext is vulnerable to XSS attacks.
-
-```typescript
-// ❌ Bad - plaintext sensitive data
-localStorage.setItem('user', JSON.stringify({ 
-  ssn: '123-45-6789',
-  creditCard: '4111-1111-1111-1111'
-}))
-
-// ✅ Good - don't store PII client-side
-// Store in secure HttpOnly cookie server-side instead
-
-// ✅ Acceptable - if encryption is required client-side
-import { encrypt, decrypt } from '@/lib/crypto'
-const encrypted = encrypt(JSON.stringify(userData))
-localStorage.setItem('user', encrypted)
-```
-
-**Rule**: Never store SSN, credit cards, passwords, or other PII in localStorage/sessionStorage. Use secure HttpOnly cookies for sensitive session data.
-
----
-
-#### Unvalidated User Input in Dynamic Content [HIGH]
-
-**Problem**: XSS vulnerability when rendering user-generated content.
-
-```typescript
-// ❌ Bad - XSS vulnerability
-<div dangerouslySetInnerHTML={{ __html: userComment }} />
-
-// ✅ Good - sanitized input
-import DOMPurify from 'dompurify'
-
-<div dangerouslySetInnerHTML={{ 
-  __html: DOMPurify.sanitize(userComment, {
-    ALLOWED_TAGS: ['b', 'i', 'em', 'strong', 'a'],
-    ALLOWED_ATTR: ['href']
-  }) 
-}} />
-
-// ✅ Better - avoid dangerouslySetInnerHTML entirely
-<div>{userComment}</div> // React auto-escapes
-```
-
-**Rule**: Always sanitize user input before rendering as HTML. Prefer React's automatic escaping when possible.
-
----
-
-#### API Keys or Secrets in Client Code [HIGH]
-
-**Problem**: Environment variables prefixed with `NEXT_PUBLIC_` are exposed to the client.
-
-```typescript
-// ❌ Bad - exposes secret to client
-const apiKey = process.env.NEXT_PUBLIC_API_SECRET
-
-// ✅ Good - server-side only
-// In API route or Server Component:
-const apiKey = process.env.API_SECRET // No NEXT_PUBLIC_ prefix
-```
-
-**Rule**: Never prefix secrets with `NEXT_PUBLIC_`. Use server-side API routes or Server Components for authenticated requests.
-
----
-
-### 10.4 Accessibility Anti-Patterns
-
-#### Interactive Elements Without Keyboard Support [HIGH]
-
-**Problem**: Div/span used for interaction without keyboard accessibility.
-
-```typescript
-// ❌ Bad - no keyboard support
-<div onClick={handleClick}>Click me</div>
-
-// ✅ Good - use semantic button
-<button onClick={handleClick}>Click me</button>
-
-// ✅ Acceptable - if button styling doesn't work
-<div 
-  role="button"
-  tabIndex={0}
-  onClick={handleClick}
-  onKeyDown={(e) => {
-    if (e.key === 'Enter' || e.key === ' ') {
-      e.preventDefault()
-      handleClick()
-    }
-  }}
->
-  Click me
-</div>
-```
-
-**Rule**: Use semantic HTML (`<button>`, `<a>`) for interactive elements. If divs are required, add full keyboard support.
-
-**Reference**: See `.cursor/rules/accessibility.mdc` Section 3 for comprehensive keyboard navigation patterns.
-
----
-
-#### Missing ARIA Labels on Icon-Only Buttons [HIGH]
-
-**Problem**: Screen readers can't identify button purpose.
-
-```typescript
-// ❌ Bad - screen reader announces "button" with no context
-<button>
-  <CloseIcon />
-</button>
-
-// ✅ Good - accessible label
-<button aria-label="Close dialog">
-  <CloseIcon aria-hidden="true" />
-</button>
-
-// ✅ Alternative - visible text with screen reader class
-<button>
-  <CloseIcon aria-hidden="true" />
-  <span className="sr-only">Close dialog</span>
-</button>
-```
-
-**Rule**: All icon-only interactive elements must have `aria-label` or visually hidden text.
-
----
-
-#### Form Inputs Without Associated Labels [HIGH]
-
-**Problem**: Screen readers can't identify input purpose; reduces click target.
-
-```typescript
-// ❌ Bad - no label association
-<div>
-  <span>Email</span>
-  <input type="email" placeholder="Enter email" />
-</div>
-
-// ✅ Good - properly associated label
-<div>
-  <label htmlFor="email-input">Email</label>
-  <input id="email-input" type="email" placeholder="Enter email" />
-</div>
-
-// ✅ Alternative - label wrapping input
-<label>
-  Email
-  <input type="email" placeholder="Enter email" />
-</label>
-```
-
-**Rule**: All form inputs must have associated `<label>` elements using `htmlFor`/`id` or wrapping.
-
-**Reference**: See `.cursor/rules/accessibility.mdc` Section 9 for comprehensive form accessibility patterns.
-
----
-
-### 10.5 TypeScript Anti-Patterns
-
-#### Using `any` Type [HIGH]
-
-**Problem**: Defeats TypeScript's type safety.
-
-```typescript
-// ❌ Bad - any type
-function processData(data: any) {
-  return data.value // No type checking
-}
-
-// ✅ Good - unknown with type narrowing
-function processData(data: unknown) {
-  if (typeof data === 'object' && data !== null && 'value' in data) {
-    return (data as { value: string }).value
-  }
-  throw new Error('Invalid data structure')
-}
-
-// ✅ Better - proper typing
-interface DataStructure {
-  value: string
-}
-
-function processData(data: DataStructure) {
-  return data.value
-}
-```
-
-**Rule**: The `any` type is **forbidden** per Section 2.1. Use `unknown` with type narrowing instead.
-
----
-
-#### Non-Null Assertions Without Validation [MEDIUM]
-
-**Problem**: Using `!` operator without guaranteeing value exists.
-
-```typescript
-// ❌ Bad - assumes user exists
-const userName = users.find(u => u.id === id)!.name // Runtime error if not found
-
-// ✅ Good - handle undefined case
-const user = users.find(u => u.id === id)
-if (!user) throw new Error(`User ${id} not found`)
-const userName = user.name
-
-// ✅ Alternative - optional chaining with fallback
-const userName = users.find(u => u.id === id)?.name ?? 'Unknown'
-```
-
-**Rule**: Only use non-null assertion (`!`) when TypeScript's type system can't infer a guarantee you know is true. Always prefer explicit validation.
-
----
-
-### 10.6 Testing Anti-Patterns
-
-**Note**: For comprehensive testing anti-patterns, see `.cursor/rules/frontend-testing.mdc` Section 1 (Common Mistakes to Avoid).
-
-Key testing anti-patterns to flag:
-- Using `container.querySelector` instead of accessible queries (CRITICAL)
-- Using `queryBy*` for positive assertions instead of `getBy*` (CRITICAL)  
-- Using `fireEvent` instead of `userEvent` (IMPORTANT)
-- Missing test coverage for critical user flows (MEDIUM)
-
----
-
-## 11. Pattern Identification & Consolidation
-
-When reviewing code or planning features, actively identify opportunities to consolidate repeated patterns into shared abstractions.
-
-### 11.1 Pattern Recognition Triggers
-
-**Flag for consolidation when you observe:**
-
-| Trigger | Threshold | Action |
-|---------|-----------|--------|
-| Same structural pattern | 3+ components | Suggest shared component |
-| Repeated CSS class combinations | 3+ files | Suggest utility class or component |
-| Similar prop interfaces | 3+ components | Suggest shared type/interface |
-| Identical data fetching logic | 2+ components | Suggest custom hook |
-| Same container wrapper structure | 3+ components | Suggest layout component |
-
-### 11.2 How to Identify Patterns
-
-**Search techniques:**
-1. **Grep for structural CSS:** `max-w-[1440px] mx-auto`, `px-6 md:px-8 2xl:px-20`
-2. **Grep for shared component imports:** If `ToolkitHeader` is imported 3+ places, there's likely a pattern
-3. **Compare file structures side-by-side:** Look for identical wrapper/container shapes
-4. **Check naming conventions:** `*-container.tsx`, `*-skeleton.tsx` patterns suggest similar responsibilities
-
-**Example pattern search:**
-```bash
-# Find all components using the same layout structure
-grep -r "max-w-\[1440px\] mx-auto" components/
-
-# Find all imports of a potentially shared component
-grep -r "ToolkitHeader" components/
-```
-
-### 11.3 When to Suggest Consolidation
-
-**SHOULD suggest abstraction when:**
-- 3+ components share identical structural patterns (wrapper, padding, max-width)
-- A component is imported and used identically in 3+ places
-- Copy-paste is the path of least resistance for new features
-- The pattern is stable (not likely to diverge)
-
-**SHOULD NOT abstract when:**
-- Only 2 instances exist (wait for the third)
-- Instances are likely to diverge in behavior
-- Abstraction would require complex conditional logic
-- The "pattern" is coincidental, not intentional
-
-### 11.4 How to Propose Consolidation
-
-When identifying a pattern, document:
-
-1. **Evidence:** List the files that share the pattern
-2. **Pattern description:** What's repeated (structure, props, behavior)
-3. **Proposed abstraction:** Component name, props interface, usage example
-4. **Trade-offs:** Complexity added vs. duplication removed
-5. **Migration path:** How existing code would adopt the abstraction
-
-**Example proposal format:**
-```markdown
-## Pattern Identified: Section Container
-
-### Evidence
-- `toolkit/toolkit-container.tsx`
-- `helpful-links/helpful-links-container.tsx`
-- `nav-cards/nav-cards-container.tsx`
-
-### Repeated Structure
-- `<section aria-label="...">` wrapper
-- `className={cn('w-full bg-white', 'px-6 md:px-8 2xl:px-20', 'py-10')}`
-- `<div className={cn('max-w-[1440px] mx-auto', 'flex flex-col gap-10')}>`
-- Header component + children
-
-### Proposed Abstraction
-```tsx
-interface SectionContainerProps {
-  ariaLabel: string
-  title: string
-  description?: string
-  children: React.ReactNode
-}
-```
-
-### Trade-offs
-- ✅ Single source of truth for section layout
-- ✅ Consistent responsive padding across all sections
-- ⚠️ Adds one level of abstraction
-- ⚠️ Existing components need migration
-```
-
-### 11.5 Consolidation Decision Matrix
-
-| Scenario | Recommendation |
-|----------|----------------|
-| 2 similar components | Document pattern, wait for third instance |
-| 3+ identical structures | Propose shared component |
-| 3+ similar but varying structures | Propose component with variants/props |
-| Pattern spans feature boundaries | Propose in `components/shared/` |
-| Pattern is feature-specific | Keep in feature folder, extract if it spreads |
-
-### 11.6 Integration with Planning
-
-**During story planning:**
-- Before implementing, search for similar existing components
-- If implementing would create a third instance of a pattern, propose consolidation first
-- Document pattern discoveries in specification files for team visibility
-
-**During code review:**
-- Flag when a PR introduces duplication of an existing pattern
-- Suggest consolidation as a follow-up task if not blocking
-
----
-
-## Summary
-
-This anti-patterns checklist should be used during code review to identify **SHOULD FIX (Tier 2)** issues. Each pattern includes:
-- **Severity**: [HIGH], [MEDIUM], [LOW]
-- **Problem**: Description of the anti-pattern
-- **Examples**: Bad and good code patterns
-- **Impact**: Why this matters
-- **Rule/Reference**: Link to relevant section in this document or other rule files
-
-For code review process, see `.cursor/commands/9-code-review.md`.
+## 6. Styling Requirements
+
+- **Tailwind CSS**: Primary styling solution (mandatory)
+- **shadcn/ui**: All components built from shadcn primitives (mandatory)
+- **CSS Variables**: Use for theming
+- **Mobile-first**: Responsive design approach
+
+## 7. Performance Optimization
+
+| Feature        | Usage               |
+| -------------- | ------------------- |
+| `next/image`   | All images          |
+| `next/link`    | Internal navigation |
+| `next/font`    | Font loading        |
+| `next/dynamic` | Lazy loading        |
+
+**Data fetching:**
+
+- Parallel fetches with `Promise.all()`
+- Use React Query for client-side state
+
+## 8. Error Handling
+
+- Early returns for error conditions
+- Guard clauses for preconditions
+- Error boundaries around async operations
+- **No console methods** in production (`console.log`, `console.error`)
+
+## 9. Anti-Patterns Quick Reference
+
+| Anti-Pattern                                   | Severity | Fix                                    |
+| ---------------------------------------------- | -------- | -------------------------------------- |
+| localStorage on every state change             | HIGH     | Debounce writes (500ms)                |
+| Missing memoization for expensive ops          | MEDIUM   | `useMemo` for >5ms operations          |
+| Unbounded list rendering (>100 items)          | HIGH     | Use virtualization                     |
+| Sequential API calls that could parallelize    | MEDIUM   | `Promise.all()`                        |
+| Missing useEffect dependencies                 | HIGH     | Include all dependencies               |
+| Client fetch when Server Component works       | MEDIUM   | Move to Server Component               |
+| Index as key for dynamic lists                 | MEDIUM   | Use stable unique ID                   |
+| Direct DOM manipulation                        | HIGH     | Use refs, not `document.querySelector` |
+| Prop drilling through 3+ levels                | LOW      | Use Context                            |
+| PII in localStorage without encryption         | HIGH     | Use HttpOnly cookies                   |
+| `dangerouslySetInnerHTML` without sanitization | HIGH     | Use DOMPurify                          |
+| API secrets in client code (`NEXT_PUBLIC_`)    | HIGH     | Server-side only                       |
+| Interactive div without keyboard support       | HIGH     | Use `<button>` or add handlers         |
+| Icon-only buttons without aria-label           | HIGH     | Add `aria-label`                       |
+| Form inputs without labels                     | HIGH     | Associate with `htmlFor`               |
+| Using `any` type                               | HIGH     | Use `unknown` with narrowing           |
+| Non-null assertion without validation          | MEDIUM   | Handle undefined case                  |
+
+For detailed examples, see `nextjs-patterns.mdc`.
+
+## 10. Cross-References
+
+- Component architecture: `nextjs-component-architecture.mdc`
+- Testing: `frontend-testing.mdc`
+- Accessibility: `accessibility.mdc`
+- Code examples: `nextjs-patterns.mdc`

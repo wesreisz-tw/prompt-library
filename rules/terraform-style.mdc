@@ -1,6 +1,6 @@
 ---
 description: Terraform coding standards and best practices for infrastructure as code
-globs: ["*.tf", "*.tfvars"]
+globs: *.tf,*.tfvars
 alwaysApply: false
 ---
 

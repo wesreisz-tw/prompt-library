@@ -1,5 +1,5 @@
 ---
-description: Core cross language development rules
+description: 'Critical partner safety rules, execution sequence requirements, and prohibited actions. Apply to all code changes.'
 globs: *
 alwaysApply: false
 ---
@@ -23,7 +23,7 @@ Do not affirm my statements or assume my conclusions are correct. Question assum
 - Plan before coding
 - No code comments - write self-explanatory code
 - Keep imports alphabetically sorted
-- Keep code SOLID but simple - separation of concerns without over-engineering  
+- Keep code SOLID but simple - separation of concerns without over-engineering
 - Aim to keep files under 300 lines - split when it improves clarity
 - Write tests for critical paths only. Use AAA pattern with comments. Learn from examples
 - Test your tests and run npm run lint for lint check

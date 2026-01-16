@@ -1,6 +1,6 @@
 ---
 description: Shell script coding standards and best practices for consistency, maintainability, and security
-globs: ["*.sh"]
+globs: *.sh
 alwaysApply: false
 ---
 

@@ -1,5 +1,5 @@
 ---
-globs: **/*.{ts,tsx,js,jsx,md,json,css,mjs}
+globs: *
 ---
 
 This story [STORY_ID] needs to be broken down into sequential, independent tasks for implementation.

@@ -1,6 +1,6 @@
 ---
 description: Spanner DDL coding standards and best practices - DDL only, never DML
-globs: ["*.sql", "**/migrations/*.sql"]
+globs: *.sql,migrations/*.sql
 alwaysApply: false
 ---
 
@@ -497,4 +497,3 @@ Before creating a migration, verify:
 ---
 
 **Remember**: Migrations are structural changes only. Data changes are handled separately via application scripts.
-

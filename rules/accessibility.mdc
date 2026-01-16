@@ -1,5 +1,6 @@
 ---
 description: Accessibility rules for WCAG 2.1 Level AA compliance, keyboard navigation, screen reader support, and inclusive design
+globs: *.tsx,*.jsx
 alwaysApply: false
 ---
 # Accessibility Rules

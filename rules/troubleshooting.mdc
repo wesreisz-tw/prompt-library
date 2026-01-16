@@ -1,3 +1,9 @@
+---
+description: 'Common error solutions and debugging approaches. Apply when debugging errors or investigating failures.'
+globs:
+alwaysApply: false
+---
+
 # AI Agent Troubleshooting Rules
 
 > **Core Principle:** When the user says something worked before, BELIEVE THEM. Start from the assumption that recent changes introduced the problem.
@@ -11,12 +17,14 @@
 Most issues are environmental, not logical.
 
 **Before investigating ANY issue:**
+
 - Kill stale processes (dev servers, background jobs, databases)
 - Clear all caches (build artifacts, dependency caches, test results)
 - Verify clean git state
 - Fresh build/install
 
 **Red Flags for Environment Issues:**
+
 - 🚩 Works sometimes, fails other times
 - 🚩 Errors don't match current code/files
 - 🚩 "Already in use" / "Cannot find" errors
@@ -31,6 +39,7 @@ Most issues are environmental, not logical.
 Solutions should get simpler, not more complex.
 
 **You're in a death spiral if:**
+
 1. 🚩 Solutions getting **longer/more complex** (not simpler)
 2. 🚩 On **attempt 3+** without progress
 3. 🚩 **Working around** problems your solution created
@@ -52,6 +61,7 @@ STUCK? → External help after 3 attempts
 ```
 
 **Critical Questions:**
+
 - ❓ "What's the **actual problem** vs problems my solution created?"
 - ❓ "Is there a **standard pattern/idiom** for this?"
 - ❓ "Am I **trusting the tools** to do their job?"
@@ -130,6 +140,7 @@ Still stuck? Ask for clarification
 ## When to Ask for Help
 
 After you've:
+
 1. ✅ Cleaned environment completely
 2. ✅ Rebuilt/restarted from scratch
 3. ✅ Attempted 3 different approaches
@@ -144,6 +155,7 @@ Then: "Issue persists in clean environment after [X approaches]. May I get clari
 **The user is your partner, not your adversary.**
 
 When they report an issue:
+
 - They're usually right
 - They know their codebase
 - They want to move forward, not debate
@@ -160,6 +172,7 @@ Your job is to help, not to be right.
 <summary><b>Example: Test Failures (Jest, Playwright, Pytest, etc.)</b></summary>
 
 **Environment Reset:**
+
 ```bash
 # Kill dev servers on test ports
 lsof -ti:3000 | xargs kill -9 2>/dev/null  # Adjust port
@@ -175,17 +188,20 @@ npm run build  # or equivalent
 ```
 
 **Common Issues:**
+
 - Tests hitting stale dev server instead of fresh build
 - Cached test results or coverage reports
 - Background processes from previous runs
 
 **Standard Pattern:** Let test frameworks manage their lifecycle (don't manually start/stop servers)
+
 </details>
 
 <details>
 <summary><b>Example: Build/Deployment Failures</b></summary>
 
 **Environment Reset:**
+
 ```bash
 # Clear build outputs
 rm -rf dist build out target .next
@@ -198,17 +214,20 @@ npm ci  # or pip install --force-reinstall, gradle clean, etc.
 ```
 
 **Common Issues:**
+
 - Stale build artifacts
 - Dependency version mismatches
 - Cached environment variables
 
 **Standard Pattern:** Use CI/build tool features (caching, artifacts) rather than custom scripts
+
 </details>
 
 <details>
 <summary><b>Example: API/Service Integration Issues</b></summary>
 
 **Environment Reset:**
+
 ```bash
 # Restart dependent services
 docker-compose restart  # or equivalent
@@ -221,17 +240,20 @@ curl http://localhost:PORT/health  # check endpoints
 ```
 
 **Common Issues:**
+
 - Services in bad state from previous debugging
 - Cached responses or stale connections
 - Configuration/secrets not loaded
 
 **Standard Pattern:** Use service discovery, health checks, retry logic from libraries
+
 </details>
 
 <details>
 <summary><b>Example: Database/Migration Issues</b></summary>
 
 **Environment Reset:**
+
 ```bash
 # Reset to known state
 db:rollback && db:migrate  # Rails/ActiveRecord
@@ -243,11 +265,13 @@ dropdb mydb && createdb mydb && db:migrate
 ```
 
 **Common Issues:**
+
 - Migrations partially applied
 - Schema out of sync with models
 - Test data in wrong state
 
 **Standard Pattern:** Use ORM/migration tool features, not custom SQL scripts
+
 </details>
 
 ---
@@ -255,6 +279,7 @@ dropdb mydb && createdb mydb && db:migrate
 ## THIS PROJECT: bpp-web (Next.js + Playwright)
 
 **Quick Environment Reset:**
+
 ```bash
 lsof -ti:3000 | xargs kill -9 2>/dev/null
 rm -rf .next node_modules/.cache playwright-report test-results coverage
@@ -262,11 +287,13 @@ npm ci
 ```
 
 **Common Issues:**
+
 - `.next` cache after significant changes
 - Playwright webServer managing server lifecycle (don't manually start/stop)
 - MSW mocking enabled via `NEXT_PUBLIC_API_MOCKING=enabled`
 
 **When Tests Hang:**
+
 - Check for HTML reporter in CI (should use 'list' reporter)
 - Verify cleanup functions use `trap` for guaranteed execution
 - Trust Playwright's webServer config to manage server lifecycle

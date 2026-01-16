@@ -9,11 +9,13 @@ alwaysApply: false
 Follow the conventional commits format with story/ticket references:
 
 ## Format
+
 ```
 <type>(<scope>): <description>
 ```
 
 ## Types
+
 - `feat`: new feature
 - `fix`: bug fix
 - `docs`: documentation changes
@@ -23,19 +25,22 @@ Follow the conventional commits format with story/ticket references:
 - `chore`: changes to build process or auxiliary tools
 
 ## Scope
+
 - Use the story/ticket number (e.g., `DBP-24`, `DBP-5`)
 - For general changes without a specific ticket, use a descriptive scope (e.g., `config`, `scripts`, `infra`)
 
 ## Description
+
 - Use lowercase
 - Use imperative mood ("add" not "added" or "adds")
 - No period at the end
 - Be concise but descriptive
 
 ## Examples
+
 ```
 feat(DBP-24): add epic/story structure, execution plan and initial implementation
-fix(DBP-25): resolve authentication error in bootstrap script  
+fix(DBP-25): resolve authentication error in bootstrap script
 docs(DBP-5): update setup instructions for new deployment process
 chore(config): update required APIs list for infrastructure
 ```
