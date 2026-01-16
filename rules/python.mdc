@@ -12,7 +12,7 @@ This rule is **tooling-first**: do not restate style rules that Black/Ruff alrea
 - **Dependency / venv management**: `uv` (**required**; do not use `pip` directly)
 - **Formatting**: `ruff format` (**required**; do not use Black)
 - **Linting + import sorting**: `ruff check` (**required**, select `E`, `F`, `I`)
-- **Type checking**: basedpyright (**optional but recommended**)
+- **Type checking**: basedpyright (**required**, minimum config below)
 - **Testing**: pytest (+ `pytest-asyncio` when async)
 
 **Rule**: treat the repo’s `pyproject.toml` as the authoritative configuration. If this doc conflicts with tooling config, **tooling wins**.
@@ -28,6 +28,34 @@ target-version = "py311"
 select = ["E", "F", "I"]
 ignore = ["E501"] # formatter handles line wrapping
 ```
+
+Minimum basedpyright policy (keep in `pyproject.toml`). This is a baseline; repos can ratchet stricter over time:
+
+- `include` should match repo layout. Prefer including whichever exist: `app/`, `src/`, `tools/`, `tests/`.
+- `exclude` should omit editor, venv, cache, and build/output directories.
+
+```toml
+[tool.basedpyright]
+exclude = [
+    ".cursor",
+    ".venv",
+    "__pycache__",
+    "build",
+    "dist",
+    "output",
+]
+# Adjust based on repo layout (include whichever exist):
+include = ["app", "src", "tools", "tests"]
+pythonVersion = "3.11"
+typeCheckingMode = "standard"
+reportMissingImports = false
+reportMissingTypeStubs = false
+```
+
+To ratchet stricter later:
+
+- Change `typeCheckingMode` to `"strict"`.
+- Optionally enable missing imports/stubs checks as the repo is ready.
 
 ## 2) Naming conventions (project standard)
 
