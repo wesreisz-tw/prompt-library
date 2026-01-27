@@ -1,7 +1,6 @@
 ---
 description: 'Next.js App Router patterns, Server/Client Components, TypeScript strict mode, and React best practices. Apply when building or reviewing React components and pages.'
-globs: *.tsx,*.ts,*.js,*.test.tsx,*.test.ts,*.spec.ts,next.
-config.ts,*.md
+globs: *.tsx,*.ts,*.js,*.test.tsx,*.test.ts,*.spec.ts,next.config.ts,*.md
 alwaysApply: false
 ---
 
