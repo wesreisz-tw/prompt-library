@@ -10,7 +10,7 @@ Before writing any plan:
 1. Read task file to identify target files/extensions
 2. Match extensions against `globs` in `<agent_requestable_workspace_rules>`
 3. Load ALL matching rules using Read tool
-4. Output (file names only, no paths):
+4. Display in chat response (NOT in the plan file):
    ## Rules Loaded
    - [rule.mdc] - matched [glob] for [target files]
 
@@ -46,7 +46,7 @@ Keep the plan concise and actionable. Each step should be specific enough that n
 
 META-INSTRUCTION: RULES SUMMARY (END OF TASK)
 
-After completing the plan, output:
+After completing the plan file, display in chat response (do NOT write to the plan file):
 
 ## Rules Applied
 **Rules Loaded & Used:**
