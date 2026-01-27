@@ -1,7 +1,7 @@
 ---
 description: 'Critical partner safety rules, execution sequence requirements, and prohibited actions. Apply to all code changes.'
 globs: *
-alwaysApply: false
+alwaysApply: true
 ---
 
 # STRICT RULES

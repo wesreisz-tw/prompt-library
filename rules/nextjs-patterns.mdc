@@ -15,10 +15,12 @@ Detailed code examples for patterns defined in `nextjs-sensible-defaults.mdc`.
 ```tsx
 // ✅ Good - Server Component fetches data
 export async function ProductList() {
-  const products = await fetch('/api/products').then(r => r.json())
+  const products = await fetch('/api/products').then((r) => r.json())
   return (
     <ul>
-      {products.map(p => <li key={p.id}>{p.name}</li>)}
+      {products.map((p) => (
+        <li key={p.id}>{p.name}</li>
+      ))}
     </ul>
   )
 }
@@ -34,11 +36,7 @@ import { useState } from 'react'
 
 export function Counter() {
   const [count, setCount] = useState(0)
-  return (
-    <button onClick={() => setCount((c) => c + 1)}>
-      Count: {count}
-    </button>
-  )
+  return <button onClick={() => setCount((c) => c + 1)}>Count: {count}</button>
 }
 ```
 
@@ -73,7 +71,7 @@ const comments = await fetchComments(id)
 const [user, posts, comments] = await Promise.all([
   fetchUser(id),
   fetchPosts(id),
-  fetchComments(id)
+  fetchComments(id),
 ])
 ```
 
@@ -88,10 +86,7 @@ function Component({ items }) {
 
 // ✅ Good - memoized
 function Component({ items }) {
-  const sorted = useMemo(
-    () => items.sort((a, b) => b.score - a.score),
-    [items]
-  )
+  const sorted = useMemo(() => items.sort((a, b) => b.score - a.score), [items])
   return <List data={sorted} />
 }
 ```
@@ -230,7 +225,7 @@ export default function Page() {
 
 ```tsx
 // ❌ Bad - prop drilling through 4 levels
-<App user={user}>
+;<App user={user}>
   <Layout user={user}>
     <Page user={user}>
       <Component user={user} />

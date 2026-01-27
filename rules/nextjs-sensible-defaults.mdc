@@ -119,7 +119,10 @@ export const dynamic = 'force-dynamic'
 - Early returns for error conditions
 - Guard clauses for preconditions
 - Error boundaries around async operations
-- **No console methods** in production (`console.log`, `console.error`)
+- **Console Logging Policy**:
+  - **Client-Side**: All console methods prohibited
+  - **Server-Side**: `console.error()` allowed for critical errors; prefer OpenTelemetry for structured logging
+  - **Instrumentation**: Console logging acceptable in initialization code
 
 ## 9. Anti-Patterns Quick Reference
 
@@ -142,6 +145,8 @@ export const dynamic = 'force-dynamic'
 | Form inputs without labels                     | HIGH     | Associate with `htmlFor`               |
 | Using `any` type                               | HIGH     | Use `unknown` with narrowing           |
 | Non-null assertion without validation          | MEDIUM   | Handle undefined case                  |
+| Magic strings/numbers in code                  | MEDIUM   | Extract to named constants             |
+| Inline user-facing text                        | MEDIUM   | Extract constants for i18n readiness   |
 
 For detailed examples, see `nextjs-patterns.mdc`.
 
