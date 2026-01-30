@@ -402,9 +402,10 @@ When implementing Figma designs, create a design analysis document in `specifica
 
 When implementation differs from Figma design:
 
-- **Document in `docs/claudisms/`**: Create `{topic}-decision.md`
+- **UI Components**: Document in [`components/ui/CUSTOMIZATIONS.md`](../components/ui/CUSTOMIZATIONS.md)
+- **Other deviations**: Document in relevant specification or ADR
 - **Rationale Required**: Explain why deviation is necessary
-- **Examples**: "Goal" vs "Story Link" terminology, touch target enhancements
+- **Examples**: shadcn/ui focus ring style, touch target trade-offs
 
 ---
 

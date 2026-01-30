@@ -10,6 +10,16 @@ alwaysApply: false
 
 Perform a comprehensive code review on the selected files/diff, adopting the persona of a **Senior Technical Lead**. The review must be **actionable, constructive, and prioritize high-severity architectural, security, and performance issues**.
 
+### Story-Based Review (When reviewing a specification file)
+
+When the review target is a `specifications/**/*.md` file:
+
+- Extract story ID from directory path (e.g., `DBP-401` from `specifications/DBP-401-*/`)
+- Collect all story commits: `git log --all --grep="<STORY_ID>" --oneline`
+- Generate aggregated diff of net changes: `git diff <first-commit>^..<last-commit>`
+- Scan story.md for Figma links — if found, also execute `/bpp-web/10-design-review` after code review
+- Review the aggregated diff using the standard process below
+
 ### Pre-Review Setup (MANDATORY)
 
 Before performing the review, you MUST:

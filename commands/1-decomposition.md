@@ -38,12 +38,8 @@ FINAL REVIEW TASK:
 
 After creating implementation tasks, always create a final task-[N]-review.md that:
 
-- Scans story.md for Figma links (figma.com/design, figma.com/file, figma.com/board) to detect UI stories
-- Extracts story ID from directory path (e.g., DBP-325 from specifications/dbp-325-\*)
-- Collects all story commits: git log --all --grep="<STORY_ID>" --oneline
-- Generates aggregated diff of net changes: git diff <first-commit>^..<last-commit>
-- Executes /bpp-web/9-code-review against the aggregated diff
-- If Figma links found, also executes /bpp-web/10-design-review with story context
+- Executes `/bpp-web/9-code-review` against the story.md file
+  - The code review command will automatically gather commits, generate diffs, and trigger design review if Figma links are present
 - Documents that all Tier 1 issues must be resolved before merge
 
 This review task depends on all previous tasks and serves as the final quality gate.
