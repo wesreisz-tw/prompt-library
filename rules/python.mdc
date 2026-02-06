@@ -128,7 +128,27 @@ async def endpoint(
     ...
 ```
 
-## 5) Error handling & logging (project standard)
+## 5) Async patterns (critical for FastAPI)
+
+**Rule**: Never call synchronous blocking I/O from an `async` function—it blocks the entire event loop.
+
+**Blocking operations** include: synchronous HTTP clients, file I/O, database drivers without async support, and SDK clients that perform network calls.
+
+**Pattern**: Offload blocking calls with `asyncio.to_thread()`:
+
+```python
+import asyncio
+
+def _blocking_call(data: str) -> dict:
+    return some_sync_client.call(data)
+
+async def non_blocking_call(data: str) -> dict:
+    return await asyncio.to_thread(_blocking_call, data)
+```
+
+**Prefer native async libraries** when available (e.g., `httpx.AsyncClient`, `aiofiles`, async database drivers).
+
+## 6) Error handling & logging (project standard)
 
 - **API errors**: raise `fastapi.HTTPException` for expected client errors.
 - **Unexpected failures**: log with stack trace (`logger.exception(...)`) and return a generic server error.
@@ -151,7 +171,7 @@ except Exception:
     raise
 ```
 
-## 6) Configuration management (pydantic-settings)
+## 7) Configuration management (pydantic-settings)
 
 Use `pydantic-settings` for environment-driven config and cache the settings object.
 
@@ -175,7 +195,7 @@ def get_settings() -> Settings:
     return Settings()
 ```
 
-## 7) GCP integration (Secret Manager)
+## 8) GCP integration (Secret Manager)
 
 - Retrieve secrets via **Secret Manager**.
 - Cache where appropriate.
@@ -195,7 +215,7 @@ def get_secret(secret_id: str, project_id: str) -> str:
     return response.payload.data.decode("UTF-8")
 ```
 
-## 8) Project structure (convention)
+## 9) Project structure (convention)
 
 ```
 project/
@@ -210,7 +230,7 @@ project/
 └── pyproject.toml
 ```
 
-## 9) Testing (pytest)
+## 10) Testing (pytest)
 
 - Use `pytest` for unit/integration tests.
 - Use `pytest-asyncio` for async code.
