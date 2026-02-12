@@ -1,0 +1,195 @@
+---
+description: 'Evaluate whether tests provide real value: testing behavior over implementation, catching real bugs, resisting refactoring. Apply when reviewing test quality.'
+globs:
+  - "*.test.ts"
+  - "*.test.tsx"
+  - "*.spec.ts"
+  - "specifications/**/*.md"
+alwaysApply: false
+---
+
+# Test Review: Usefulness & Quality
+
+Evaluate whether each test earns its maintenance cost by catching real bugs.  Suggest improvements for flagged tests.
+
+## The Refactor Test
+
+For each test, ask: "Would renaming an internal function, restructuring internals, or changing wiring break this test even though externally visible behavior is unchanged?"
+
+If yes, the test is coupled to implementation, not behavior. Flag it.
+
+### Brittle -- flag these
+
+| Testing... | Fix |
+|---|---|
+| Internal method/function call counts | Assert on observable output or side effects |
+| Private field values or internal state | Assert on public API behavior or rendered output |
+| DI registrations / hook invocation details / fixture wiring | Test through the composed behavior |
+| DOM structure / element ordering | Query by role, label, or text |
+| Specific exception types for internal errors | Assert on status codes or user-facing error messages |
+
+### Useful -- DO NOT flag these
+
+| Testing... | Why it's useful |
+|---|---|
+| CSS classes enforcing design specs | The class IS the spec (see examples below) |
+| User-visible text, behavior, navigation | Observable behavior |
+| HTTP response status codes and bodies | API contract |
+| API request/response contracts | API contract |
+| Business rule outcomes | Core logic |
+| Error messages shown to users/callers | User-facing behavior |
+| Database query results (integration tests) | Data contract |
+
+### Design spec assertions are NOT brittle
+
+CRITICAL: `toHaveClass` / class assertions that enforce design specs (colors, typography, spacing, accessibility) are USEFUL tests. The CSS class IS the specification. Do NOT recommend removing them.
+
+Examples of useful design spec assertions -- KEEP all of these:
+```typescript
+// Colors / visual states
+expect(card).toHaveClass('bg-neutral-100')
+expect(card).toHaveClass('border-destructive')
+
+// Typography
+expect(heading).toHaveClass('text-2xl', 'font-extrabold')
+expect(text).toHaveClass('text-sm', 'font-normal', 'leading-normal')
+expect(boldText).toHaveClass('font-bold')
+
+// Spacing / layout
+expect(container).toHaveClass('py-0.5')
+expect(alert).toHaveClass('flex', 'gap-3', 'px-4', 'py-3', 'rounded-lg', 'border')
+
+// Accessibility
+expect(element).toHaveClass('sr-only')
+```
+
+Only flag a class assertion if the class is purely structural wiring with no design or a11y meaning (rare).
+
+## Anti-Patterns to Flag
+
+**Tautological tests** -- test always passes regardless of implementation:
+```typescript
+expect(true).toBe(true)
+expect(wrapper).toBeDefined()
+```
+```csharp
+Assert.NotNull(result);
+Assert.IsType<OkObjectResult>(result); // without checking the value
+```
+```python
+assert result is not None  # passes even if result is wrong
+assert isinstance(response, dict)  # says nothing about correctness
+```
+
+**Mirror tests** -- test duplicates implementation logic:
+```typescript
+const expected = items.filter(i => i.active).length
+expect(result).toBe(expected)
+```
+```csharp
+var expected = items.Where(i => i.IsActive).Count();
+Assert.Equal(expected, result.Count);
+```
+```python
+expected = [i for i in items if i["active"]]
+assert result == expected  # re-implements the production filter
+```
+
+**Framework tests** -- testing third-party library behavior, not your code:
+```typescript
+// Tests that React renders, not that YOUR component works
+expect(screen.getByRole('button')).toBeInTheDocument() // ...and nothing else
+```
+```csharp
+// Tests that ASP.NET model binding works, not that YOUR validation works
+Validator.TryValidateObject(model, context, results, true);
+Assert.Empty(results); // ...and nothing else about your logic
+```
+```python
+# Tests that Pydantic validates, not that YOUR model constraints work
+model = MyModel(name="valid")
+assert model.name == "valid"  # ...and nothing else about your rules
+```
+
+**Overlap tests** -- multiple tests verifying the exact same behavior:
+```
+Flag when >2 tests across different levels assert the same outcome for the same input.
+One test per behavior per pyramid level is sufficient.
+```
+Favor improvement over removal unless the test is completely redundant (identical input, identical assertion, same pyramid level). When a test overlaps but uses a different scenario or trigger, improve it to cover an untested path instead of deleting it.
+
+**Name-body mismatch** -- test name or describe block promises behavior the assertions don't verify:
+
+Read the test name, then read ONLY the assertions. Do the assertions prove what the name claims?
+
+```typescript
+// ❌ Name says "network timeout" but arrange uses a generic error, assertions don't verify timeout behavior
+it('redirects with error when network timeout occurs', async () => {
+  mockFn.mockRejectedValue(new Error('Network timeout'))  // arrange implies timeout
+  const response = await GET(request)
+  expect(response.status).toBe(307)  // assert only checks redirect — any error does this
+})
+
+// ✅ Fix: either narrow the assertion to verify timeout-specific behavior, or rename to match what's actually tested
+it('redirects with login_initiation_failed when OIDC auth URL generation fails', async () => {
+  mockFn.mockRejectedValue(new Error('Network timeout'))
+  const response = await GET(request)
+  expect(response.status).toBe(307)
+  expect(response.headers.get('location')).toContain('error=login_initiation_failed')
+})
+```
+
+```csharp
+// ❌ Name says "validates permissions" but only checks status code
+[Fact]
+public async Task ReturnsUnauthorized_WhenUserLacksPermissions()
+{
+    var response = await _client.GetAsync("/api/admin");
+    Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
+    // Never arranges a user WITHOUT permissions — test passes even if auth is completely broken
+}
+```
+
+**Checklist for each test:**
+- Does the `describe`/`context` block accurately describe the precondition?
+- Does the `it`/`test` name accurately describe the expected outcome?
+- Do the assertions verify that specific outcome, not just a side effect that any scenario would produce?
+- If AAA comments exist, does the code under each comment match what the comment says?
+
+**Wrong-level tests** -- testing at a higher level than necessary:
+```typescript
+// Pure validation function tested through a full component render
+render(<AddressForm />)
+await user.type(screen.getByLabelText('City'), "'; DROP TABLE")
+// Same bug caught by: expect(validateCity("'; DROP TABLE")).toEqual({ valid: false })
+```
+```csharp
+// Pure validation logic tested through a full integration test
+var response = await _client.PostAsync("/api/checklists", content);
+// Same bug caught by: Assert.False(WizardChecklistRequest.IsValid(badInput))
+```
+```python
+# Pure parsing logic tested through a full FastAPI test client
+response = client.post("/api/parse", json={"input": bad_data})
+# Same bug caught by: assert parse_config(bad_data) == expected_error
+```
+If the logic under test is a pure function or standalone module, test it directly.
+Higher-level tests add setup cost, execution time, and failure surface without catching additional bugs.
+
+## Positive Signals
+
+Tests are useful when they:
+
+- **Describe behavior in the test name**: "displays error toast when login fails" / "ReturnsNotFound_WhenChecklistDoesNotExist" / "test_returns_empty_list_when_no_matches_found" -- not "test case 3"
+- **Follow AAA clearly**: Arrange (setup), Act (one action), Assert (observable outcome)
+- **Fail for the right reason**: A bug in production code should make exactly this test fail
+- **Test one behavior each**: A failing test immediately tells you WHAT broke
+- **Use realistic data**: Not `"test"` and `123` but domain-representative values
+
+## Output Format
+
+For each test file reviewed, summarize:
+1. **Useful tests**: Count and brief description of tests providing real value
+2. **Suspect tests**: Tests that may be coupled to implementation (with specific concern)
+3. **Anti-patterns found**: Any tautological, mirror, framework, overlap, or name-body mismatch tests
+4. **Recommendations**: Specific refactoring suggestions for suspect tests

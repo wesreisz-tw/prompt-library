@@ -168,6 +168,22 @@ Test values at three key points:
 - [ ] What happens if state is changed externally?
 - [ ] What happens with concurrent state changes?
 
+### 2.6 Conditional Logic & Fallback Chains
+
+| Heuristic | Test Scenario | Example |
+|-----------|---------------|---------|
+| **OR conditions** | Test each operand failing independently | `!code \|\| !state` → test missing code, test missing state |
+| **AND conditions** | Test each operand true/false independently | `isAdmin && isActive` → test admin+inactive, non-admin+active |
+| **Fallback chains** | Test each fallback step activating | `name \|\| username \|\| email \|\| 'Default'` → test with only name, only username, only email, none |
+| **Optional chaining** | Test null at each level | `session.auth?.user?.id` → test null auth, test null user |
+| **Ternary cascades** | Test each condition branch | Nested ternaries need each path exercised |
+
+**Edge Case Checklist:**
+- [ ] For each `||` / `&&`, is every operand tested as the deciding factor?
+- [ ] For fallback chains, does a test exist where each fallback is the one that provides the value?
+- [ ] For optional chaining, is there a test with null/undefined at each level?
+- [ ] For components with contextual dependencies (pathname, locale, role), are non-default values tested?
+
 ---
 
 ## 3. Web-Specific Heuristics

@@ -1,0 +1,176 @@
+---
+description: 'Review test suites for acceptance criteria coverage and edge case gaps. Apply when reviewing test files or evaluating test completeness against a story.'
+globs:
+  - "*.test.ts"
+  - "*.test.tsx"
+  - "*.spec.ts"
+  - "specifications/**/*.md"
+alwaysApply: false
+---
+
+# Test Review: Coverage Completeness
+
+When reviewing tests, systematically verify completeness against the story and edge case heuristics.
+
+## Step 1: Map Tests to Acceptance Criteria
+
+For every AC in the story, determine:
+
+| AC | Unit Test? | Integration Test? | E2E Test? | Verdict |
+|----|---|---|---|---|
+| [AC text] | file:line or MISSING | file:line or MISSING | file:line or MISSING | Covered / Gap |
+
+Flag any AC with zero tests as **CRITICAL GAP**.
+Flag any AC with only one pyramid level as **PARTIAL** (acceptable for low-risk, not for error handling or security).
+
+## Step 1.5: Verify Happy Path Coverage
+
+For every route, controller, handler, service, or component under test:
+
+- Does at least one test exercise the successful/default flow end-to-end?
+- For **modified** test files (not new), confirm happy path tests weren't removed or were already present
+- For **new** test files covering existing production code, confirm the happy path is included alongside error/edge cases
+
+Flag any unit under test with only error/edge-case tests and no happy path as **CRITICAL GAP**. Error tests without a baseline success test prove the code fails gracefully — but not that it works at all.
+
+**This applies regardless of language or framework:**
+
+| Context | What constitutes a happy path test |
+|---|---|
+| API route / controller action | Valid request → correct status code + response body |
+| Service / business logic class | Valid input → expected output or state change |
+| UI component | Default props/state → correct render + interaction |
+| CLI / background job | Normal invocation → expected side effects |
+
+**Common miss**: A story scoped to "error handling" produces a test file titled "Failure Handling" with zero happy path tests. The error tests pass, but nobody verified the feature works when nothing goes wrong.
+
+## Step 2: Verify Error Path Coverage
+
+For every error the implementation handles (try/catch, error codes, redirects, fallbacks, exception filters):
+
+- Is there a test that triggers this specific error?
+- Is the user-facing or caller-facing outcome verified (not just that an error was thrown)?
+- Are all error codes/messages tested, not just a representative sample?
+
+**Common miss**: Testing 3 of 7 error codes with `it.each` / `[Theory]` / `@pytest.mark.parametrize` and assuming the rest work.
+
+## Step 3: Check Edge Cases Against Heuristics
+
+Reference `edge-case-heuristics.mdc` and verify relevant categories are addressed:
+
+- **Boundaries**: n-1, n, n+1 for all limits
+- **Empty/zero/null**: Zero items, empty strings, missing params, null values
+- **State**: Component unmount mid-operation, stale data, concurrent access
+- **Interruptions**: Network loss, timeout, session expiry during action
+- **Conditional branches**: Both sides of `||`/`&&`, each step in fallback chains, null at each optional chaining level
+- **Context variation**: Non-default values for contextual dependencies (pathname, locale, role, tenant, environment)
+
+Only flag edge cases relevant to the feature under test. Not every heuristic applies.
+
+## Step 4: Assess Pyramid Distribution
+
+| Level | Expected | Actual | Assessment |
+|---|---|---|---|
+| Unit | 60-70% of test effort | count | Over/Under/Balanced |
+| Integration | 20-30% | count | Over/Under/Balanced |
+| E2E | 5-10% | count | Over/Under/Balanced |
+
+**Anti-pattern**: All tests at one level (usually unit-only or E2E-only).
+
+## Step 5: Capture Results in a File
+
+**IMPORTANT**: Always write review results to a markdown file in the story's specification folder. Do not only summarize in chat — the review must be persisted for team visibility and follow-up.
+
+**File location**: `specifications/{story-folder}/test-review.md`
+
+Use this template:
+
+```markdown
+# Test Review: {Story ID} — {Story Title}
+
+**Date:** {YYYY-MM-DD}
+**Story:** `specifications/{story-folder}/story.md`
+**Status:** {Clean / Gaps identified — see recommendations}
+
+---
+
+## Test Files Reviewed
+
+| File | Type | Lines | Purpose |
+|------|------|-------|---------|
+| {path} | Unit/Integration/E2E | {count} | {brief purpose} |
+
+---
+
+## Step 1: AC → Test Mapping
+
+| AC | Unit Test | Integration Test | E2E Test | Verdict |
+|----|-----------|-----------------|----------|---------|
+| {AC text} | {file:line or MISSING} | {file:line or MISSING} | {file:line or MISSING} | {Covered / PARTIAL / CRITICAL GAP} |
+
+**Coverage score: X of Y ACs have tests. N are partial.**
+
+---
+
+## Step 1.5: Happy Path Coverage
+
+| Unit Under Test | Happy Path Test? | Verdict |
+|-----------------|-----------------|---------|
+| {component/route/service} | {description or MISSING} | {Covered / CRITICAL GAP} |
+
+---
+
+## Step 2: Error Path Coverage
+
+| Error Path | Tested? |
+|------------|---------|
+| {error scenario} | {Yes / MISSING} |
+
+---
+
+## Step 3: Edge Cases
+
+| Category | Addressed? | Detail |
+|----------|-----------|--------|
+| {category} | {Yes / Partial / Gap} | {detail} |
+
+---
+
+## Step 4: Pyramid Distribution
+
+| Level | Tests | Assessment |
+|-------|-------|------------|
+| Unit | {count} | {Over/Under/Balanced} |
+| Integration | {count} | {Over/Under/Balanced} |
+| E2E | {count} | {Over/Under/Balanced} |
+
+---
+
+## File-by-File: Usefulness & Quality
+
+### {filename}
+
+**Useful tests:** {count} of {total}. {brief summary}.
+**Suspect tests:** {description or None}.
+**Anti-patterns:** {description or None}.
+
+---
+
+## Recommendations
+
+| Priority | File | Issue | Action |
+|----------|------|-------|--------|
+| **CRITICAL** | {file} | {issue} | {action} |
+| **HIGH** | {file} | {issue} | {action} |
+| **MEDIUM** | {file} | {issue} | {action} |
+| **LOW** | {file} | {issue} | {action} |
+```
+
+## Output Format
+
+In addition to creating the file, summarize findings in your response as:
+1. **Coverage score**: X of Y acceptance criteria have tests
+2. **Critical gaps**: List untested ACs or error paths
+3. **Edge case gaps**: List missing boundary/empty/error scenarios
+4. **Pyramid balance**: Assessment of test level distribution
+5. **Recommendations**: Prioritized list of tests to add (CRITICAL > HIGH > MEDIUM)
