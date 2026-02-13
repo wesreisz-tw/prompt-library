@@ -10,167 +10,114 @@ alwaysApply: false
 
 # Test Review: Coverage Completeness
 
-When reviewing tests, systematically verify completeness against the story and edge case heuristics.
+Systematically verify test completeness against the story and edge case heuristics.
+
+## Step 0: Discover All Test Files
+
+Do not rely on a commit diff alone. Search for all test files that import modules changed by the story, and list every test file in `__tests__/` subdirectories corresponding to changed production code. Missing a file means missing findings.
 
 ## Step 1: Map Tests to Acceptance Criteria
 
-For every AC in the story, determine:
+**Decompose first.** Story ACs are often compound ("displays error messages" may embed 7 distinct codes). Before mapping, expand each AC into individual testable requirements:
 
-| AC | Unit Test? | Integration Test? | E2E Test? | Verdict |
-|----|---|---|---|---|
-| [AC text] | file:line or MISSING | file:line or MISSING | file:line or MISSING | Covered / Gap |
+- Split ACs that reference lists, tables, or "mentioned below" into one row per item. Example: "The different error messages are mentioned below" followed by 7 error codes = 7 AC rows, not 1 row saying "all error codes."
+- Pull in testable requirements from Notes, Technical Details, and Scope sections
+- Use Out of Scope to narrow — exclude items explicitly deferred to other stories or teams
+- Treat explicit scenarios described anywhere in the story as ACs
 
-Flag any AC with zero tests as **CRITICAL GAP**.
-Flag any AC with only one pyramid level as **PARTIAL** (acceptable for low-risk, not for error handling or security).
+Then for every decomposed AC, determine: which test file:line covers it at each pyramid level (Unit / Integration / E2E)?
+
+- Zero tests for an AC → **CRITICAL GAP**
+- Only one pyramid level for error handling or security AC → **PARTIAL**
+
+**Check for spec discrepancies.** Compare test assertion values against story-specified values (messages, codes, labels). Flag mismatches as **DISCREPANCY**. Only list discrepancies, not confirmations. If none found, state "None found." Example: story specifies `"Sign-out failed. Your session has been cleared."` but test asserts `"To finish logging out, please close your browser."` → DISCREPANCY.
 
 ## Step 1.5: Verify Happy Path Coverage
 
 For every route, controller, handler, service, or component under test:
 
-- Does at least one test exercise the successful/default flow end-to-end?
-- For **modified** test files (not new), confirm happy path tests weren't removed or were already present
-- For **new** test files covering existing production code, confirm the happy path is included alongside error/edge cases
+- At least one test exercises the successful/default flow?
+- For modified files: happy path tests weren't removed?
+- For new test files on existing code: happy path included alongside error/edge cases?
 
-Flag any unit under test with only error/edge-case tests and no happy path as **CRITICAL GAP**. Error tests without a baseline success test prove the code fails gracefully — but not that it works at all.
+No happy path → **CRITICAL GAP**. Error tests without a baseline success test prove the code fails gracefully but not that it works.
 
-**This applies regardless of language or framework:**
-
-| Context | What constitutes a happy path test |
+| Context | Happy path = |
 |---|---|
-| API route / controller action | Valid request → correct status code + response body |
-| Service / business logic class | Valid input → expected output or state change |
+| API route / controller | Valid request → correct status + body |
+| Service / business logic | Valid input → expected output or state change |
 | UI component | Default props/state → correct render + interaction |
 | CLI / background job | Normal invocation → expected side effects |
 
-**Common miss**: A story scoped to "error handling" produces a test file titled "Failure Handling" with zero happy path tests. The error tests pass, but nobody verified the feature works when nothing goes wrong.
+**Adjacent code**: If untested code produces inputs consumed by code under test (e.g., routes that emit error codes consumed by a display component), note the gap with a scope tag rather than flagging as CRITICAL for this story.
 
 ## Step 2: Verify Error Path Coverage
 
-For every error the implementation handles (try/catch, error codes, redirects, fallbacks, exception filters):
+**Enumerate from implementation**: Read both implementation and test code. Add a row for every `try/catch`, error status return, `throw`/`reject`, fallback, and default branch. Then for every row:
 
-- Is there a test that triggers this specific error?
-- Is the user-facing or caller-facing outcome verified (not just that an error was thrown)?
-- Are all error codes/messages tested, not just a representative sample?
+- Is there a test triggering this specific error?
+- Is the user/caller-facing outcome verified (not just that an error was thrown)?
+- Are ALL error codes/messages tested, not just a sample?
 
-**Common miss**: Testing 3 of 7 error codes with `it.each` / `[Theory]` / `@pytest.mark.parametrize` and assuming the rest work.
+Common miss: `it.each` / `[Theory]` / `@parametrize` testing 3 of 7 error codes.
 
-## Step 3: Check Edge Cases Against Heuristics
+**Coverage doesn't transfer across boundaries**: A unit test on a dependency (schema, service, utility) does not cover the caller's handling of that dependency's output. Enumerate error paths per caller, not per dependency.
 
-Reference `edge-case-heuristics.mdc` and verify relevant categories are addressed:
+**Silent failures**: If an error branch produces no observable feedback (e.g., toast, error message, redirect, log) — flag as a missing production behavior or verify the silence is intentional.
+
+## Step 3: Check Edge Cases
+
+Reference `edge-case-heuristics.mdc`. Only flag categories relevant to the feature:
 
 - **Boundaries**: n-1, n, n+1 for all limits
-- **Empty/zero/null**: Zero items, empty strings, missing params, null values
-- **State**: Component unmount mid-operation, stale data, concurrent access
-- **Interruptions**: Network loss, timeout, session expiry during action
-- **Conditional branches**: Both sides of `||`/`&&`, each step in fallback chains, null at each optional chaining level
-- **Context variation**: Non-default values for contextual dependencies (pathname, locale, role, tenant, environment)
+- **Empty/zero/null**: Zero items, empty strings, missing params
+- **State**: Unmount mid-operation, stale data, concurrent access
+- **Interruptions**: Network loss, timeout, session expiry
+- **Conditional branches**: Both sides of `||`/`&&`, each fallback step, null at each optional chain level
+- **Context variation**: Non-default pathname, locale, role, tenant, environment. Check `beforeEach` for hardcoded mocks no test overrides — the non-default path is untested.
 
-Only flag edge cases relevant to the feature under test. Not every heuristic applies.
+One row per heuristic category in the output. For covered categories, summarize briefly ("all tested" or one sentence). For Partial/Gap categories, expand with specifics of what's missing.
+
+**For conditional branches**: Scan implementation files for branching logic (`if`/`else`, `||`, `&&`, `??`, `?.`, ternaries, `switch`, loops with early returns). Verify both/all branches have test coverage.
 
 ## Step 4: Assess Pyramid Distribution
 
-| Level | Expected | Actual | Assessment |
-|---|---|---|---|
-| Unit | 60-70% of test effort | count | Over/Under/Balanced |
-| Integration | 20-30% | count | Over/Under/Balanced |
-| E2E | 5-10% | count | Over/Under/Balanced |
+| Level | Expected |
+|---|---|
+| Unit | 60-70% |
+| Integration | 20-30% |
+| E2E | 5-10% |
 
-**Anti-pattern**: All tests at one level (usually unit-only or E2E-only).
+**Classification guide** — classify by isolation, not by test utility. `renderHook()` and `render()` are test harness mechanics, not classification signals.
 
-## Step 5: Capture Results in a File
+| Test exercises... | Level |
+|---|---|
+| Single unit with all deps mocked or no deps (pure function, hook with all deps mocked, handler with all deps mocked) | Unit |
+| Multiple real collaborators (real context providers, real child components, real DB client, real HTTP) | Integration |
+| Real browser, real server, multi-page flow | E2E |
 
-**IMPORTANT**: Always write review results to a markdown file in the story's specification folder. Do not only summarize in chat — the review must be persisted for team visibility and follow-up.
+Classify per-test, not per-file — a file can contain both unit and integration tests. Anti-pattern: all tests at one level.
 
-**File location**: `specifications/{story-folder}/test-review.md`
+## Step 5: Write Review to File
 
-Use this template:
+Write results to `specifications/{story-folder}/test-review.md`. Header: `# Test Review: {Story ID} — {Title}` with Date, Story path, Status. Sections separated by `---`:
 
-```markdown
-# Test Review: {Story ID} — {Story Title}
+1. **Test Files Reviewed** — `| File | Type | Tests | Purpose |` with total count
+2. **AC → Test Mapping** — `| AC | Unit Test | Integration Test | E2E Test | Verdict |` with `file:line` refs. End with "X of Y ACs have tests. N are partial. K spec discrepancies."
+3. **Happy Path Coverage** — `| Unit Under Test | Happy Path Test? | Verdict |`
+4. **Error Path Coverage** — `| Error Path | Tested? |` — Yes with `file:line`, or **MISSING**
+5. **Edge Cases** — `| Category | Addressed? | Detail |` — one sentence if covered, specifics if gap
+6. **Pyramid Distribution** — `| Level | Tests | Percentage | Assessment |`
+7. **File-by-File Usefulness** — `### {filename}` per file with: Useful tests (N of N), Suspect tests, Anti-patterns
+8. **Recommendations** — `| Priority | File | Issue | Action |` — Action includes what to do and why it matters
 
-**Date:** {YYYY-MM-DD}
-**Story:** `specifications/{story-folder}/story.md`
-**Status:** {Clean / Gaps identified — see recommendations}
+**Priority calibration:**
+- **CRITICAL**: Untested happy path, untested security/auth path, or an AC with zero coverage
+- **HIGH**: Untested error paths, wrong-level tests inflating pyramid, multiple untested branches in a single function
+- **MEDIUM**: Name-body mismatch, overlap, single untested edge case, single-level-only coverage for non-critical AC
+- **LOW**: Minor edge cases (empty string), cosmetic test improvements, flaky timing patterns
+- **E2E gaps**: Missing E2E for the story's primary user journey → **HIGH**. Secondary flows → **MEDIUM**. Never CRITICAL (integration tests provide coverage) or LOW for the primary flow.
 
----
+## Summary Output
 
-## Test Files Reviewed
-
-| File | Type | Lines | Purpose |
-|------|------|-------|---------|
-| {path} | Unit/Integration/E2E | {count} | {brief purpose} |
-
----
-
-## Step 1: AC → Test Mapping
-
-| AC | Unit Test | Integration Test | E2E Test | Verdict |
-|----|-----------|-----------------|----------|---------|
-| {AC text} | {file:line or MISSING} | {file:line or MISSING} | {file:line or MISSING} | {Covered / PARTIAL / CRITICAL GAP} |
-
-**Coverage score: X of Y ACs have tests. N are partial.**
-
----
-
-## Step 1.5: Happy Path Coverage
-
-| Unit Under Test | Happy Path Test? | Verdict |
-|-----------------|-----------------|---------|
-| {component/route/service} | {description or MISSING} | {Covered / CRITICAL GAP} |
-
----
-
-## Step 2: Error Path Coverage
-
-| Error Path | Tested? |
-|------------|---------|
-| {error scenario} | {Yes / MISSING} |
-
----
-
-## Step 3: Edge Cases
-
-| Category | Addressed? | Detail |
-|----------|-----------|--------|
-| {category} | {Yes / Partial / Gap} | {detail} |
-
----
-
-## Step 4: Pyramid Distribution
-
-| Level | Tests | Assessment |
-|-------|-------|------------|
-| Unit | {count} | {Over/Under/Balanced} |
-| Integration | {count} | {Over/Under/Balanced} |
-| E2E | {count} | {Over/Under/Balanced} |
-
----
-
-## File-by-File: Usefulness & Quality
-
-### {filename}
-
-**Useful tests:** {count} of {total}. {brief summary}.
-**Suspect tests:** {description or None}.
-**Anti-patterns:** {description or None}.
-
----
-
-## Recommendations
-
-| Priority | File | Issue | Action |
-|----------|------|-------|--------|
-| **CRITICAL** | {file} | {issue} | {action} |
-| **HIGH** | {file} | {issue} | {action} |
-| **MEDIUM** | {file} | {issue} | {action} |
-| **LOW** | {file} | {issue} | {action} |
-```
-
-## Output Format
-
-In addition to creating the file, summarize findings in your response as:
-1. **Coverage score**: X of Y acceptance criteria have tests
-2. **Critical gaps**: List untested ACs or error paths
-3. **Edge case gaps**: List missing boundary/empty/error scenarios
-4. **Pyramid balance**: Assessment of test level distribution
-5. **Recommendations**: Prioritized list of tests to add (CRITICAL > HIGH > MEDIUM)
+Also summarize in response: (1) Coverage score: X/Y ACs tested, (2) Critical gaps, (3) Edge case gaps, (4) Pyramid balance, (5) Prioritized recommendations.

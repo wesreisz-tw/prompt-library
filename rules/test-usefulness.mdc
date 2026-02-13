@@ -10,186 +10,89 @@ alwaysApply: false
 
 # Test Review: Usefulness & Quality
 
-Evaluate whether each test earns its maintenance cost by catching real bugs.  Suggest improvements for flagged tests.
+Evaluate whether each test earns its maintenance cost. Suggest improvements for flagged tests.
 
 ## The Refactor Test
 
-For each test, ask: "Would renaming an internal function, restructuring internals, or changing wiring break this test even though externally visible behavior is unchanged?"
+Ask: "Would renaming an internal function or restructuring internals break this test even though visible behavior is unchanged?" If yes → coupled to implementation. Flag it.
 
-If yes, the test is coupled to implementation, not behavior. Flag it.
+**Apply per-assertion, not per-test.** A test mixing `expect(result).toEqual(activity)` (useful) with `expect(mockSelect).toHaveBeenCalled()` (brittle) is suspect. Read each assertion individually.
 
-### Brittle -- flag these
+### Brittle → Flag
 
 | Testing... | Fix |
 |---|---|
 | Internal method/function call counts | Assert on observable output or side effects |
+| ORM/query-builder chain wiring (`mockSelect`, `mockFrom`, `mockWhere` each called) | Assert on the final payload passed to the DB and the returned result |
 | Private field values or internal state | Assert on public API behavior or rendered output |
-| DI registrations / hook invocation details / fixture wiring | Test through the composed behavior |
+| DI registrations / hook invocation details | Test through composed behavior |
 | DOM structure / element ordering | Query by role, label, or text |
-| Specific exception types for internal errors | Assert on status codes or user-facing error messages |
+| Specific internal exception types | Assert on status codes or user-facing messages |
 
-### Useful -- DO NOT flag these
+### Useful → Keep
 
-| Testing... | Why it's useful |
-|---|---|
-| CSS classes enforcing design specs | The class IS the spec (see examples below) |
-| User-visible text, behavior, navigation | Observable behavior |
-| HTTP response status codes and bodies | API contract |
-| API request/response contracts | API contract |
-| Business rule outcomes | Core logic |
-| Error messages shown to users/callers | User-facing behavior |
-| Database query results (integration tests) | Data contract |
+CSS classes enforcing design specs (colors, typography, spacing, a11y), user-visible text/behavior/navigation, HTTP status codes and bodies, API contracts, business rule outcomes, user-facing error messages, database query results.
 
-### Design spec assertions are NOT brittle
+**Boundary data contracts**: Asserting on the payload shape passed to a dependency boundary (DB, API, event emitter) is behavioral — it verifies the data contract. Asserting that intermediate wiring methods were called is not.
 
-CRITICAL: `toHaveClass` / class assertions that enforce design specs (colors, typography, spacing, accessibility) are USEFUL tests. The CSS class IS the specification. Do NOT recommend removing them.
+> `toHaveClass` for design specs is USEFUL — the class IS the spec. Only flag class assertions with no design or a11y meaning.
 
-Examples of useful design spec assertions -- KEEP all of these:
-```typescript
-// Colors / visual states
-expect(card).toHaveClass('bg-neutral-100')
-expect(card).toHaveClass('border-destructive')
+**Logging/observability gray area**: Asserting that `console.error` or a logger was called with specific args is implementation-coupled (the output channel could change). However, if the AC explicitly requires failure tracking or if logs are the *only* observable side effect of an error path, testing the log call is acceptable. Prefer asserting on a higher-level observable (error response, metric, alert) when one exists.
 
-// Typography
-expect(heading).toHaveClass('text-2xl', 'font-extrabold')
-expect(text).toHaveClass('text-sm', 'font-normal', 'leading-normal')
-expect(boldText).toHaveClass('font-bold')
+## Anti-Patterns
 
-// Spacing / layout
-expect(container).toHaveClass('py-0.5')
-expect(alert).toHaveClass('flex', 'gap-3', 'px-4', 'py-3', 'rounded-lg', 'border')
+**Tautological** — always passes: `expect(wrapper).toBeDefined()`, `Assert.NotNull(result)`, `assert result is not None`
 
-// Accessibility
-expect(element).toHaveClass('sr-only')
-```
-
-Only flag a class assertion if the class is purely structural wiring with no design or a11y meaning (rare).
-
-## Anti-Patterns to Flag
-
-**Tautological tests** -- test always passes regardless of implementation:
-```typescript
-expect(true).toBe(true)
-expect(wrapper).toBeDefined()
-```
-```csharp
-Assert.NotNull(result);
-Assert.IsType<OkObjectResult>(result); // without checking the value
-```
-```python
-assert result is not None  # passes even if result is wrong
-assert isinstance(response, dict)  # says nothing about correctness
-```
-
-**Mirror tests** -- test duplicates implementation logic:
+**Mirror** — re-implements production logic:
 ```typescript
 const expected = items.filter(i => i.active).length
-expect(result).toBe(expected)
-```
-```csharp
-var expected = items.Where(i => i.IsActive).Count();
-Assert.Equal(expected, result.Count);
-```
-```python
-expected = [i for i in items if i["active"]]
-assert result == expected  # re-implements the production filter
+expect(result).toBe(expected) // duplicates the filter
 ```
 
-**Framework tests** -- testing third-party library behavior, not your code:
+**Framework** — tests library behavior, not your code:
 ```typescript
-// Tests that React renders, not that YOUR component works
 expect(screen.getByRole('button')).toBeInTheDocument() // ...and nothing else
 ```
-```csharp
-// Tests that ASP.NET model binding works, not that YOUR validation works
-Validator.TryValidateObject(model, context, results, true);
-Assert.Empty(results); // ...and nothing else about your logic
-```
-```python
-# Tests that Pydantic validates, not that YOUR model constraints work
-model = MyModel(name="valid")
-assert model.name == "valid"  # ...and nothing else about your rules
-```
 
-**Overlap tests** -- multiple tests verifying the exact same behavior:
-```
-Flag when >2 tests across different levels assert the same outcome for the same input.
-One test per behavior per pyramid level is sufficient.
-```
-Favor improvement over removal unless the test is completely redundant (identical input, identical assertion, same pyramid level). When a test overlaps but uses a different scenario or trigger, improve it to cover an untested path instead of deleting it.
+**Overlap** — >2 tests assert same outcome for same input. One per behavior per level suffices. Favor improving overlapping tests to cover untested paths over removing them.
 
-**Name-body mismatch** -- test name or describe block promises behavior the assertions don't verify:
+*Detection*: Summarize what each test's assertions verify in one sentence, ignoring the test name. Identical summaries = overlap regardless of different test names.
 
-Read the test name, then read ONLY the assertions. Do the assertions prove what the name claims?
-
+**Name-body mismatch** — assertions don't verify what the test name claims:
 ```typescript
-// ❌ Name says "network timeout" but arrange uses a generic error, assertions don't verify timeout behavior
-it('redirects with error when network timeout occurs', async () => {
-  mockFn.mockRejectedValue(new Error('Network timeout'))  // arrange implies timeout
-  const response = await GET(request)
-  expect(response.status).toBe(307)  // assert only checks redirect — any error does this
-})
-
-// ✅ Fix: either narrow the assertion to verify timeout-specific behavior, or rename to match what's actually tested
-it('redirects with login_initiation_failed when OIDC auth URL generation fails', async () => {
+// ❌ Name says "network timeout" but assertions only check generic redirect
+it('redirects when network timeout occurs', async () => {
   mockFn.mockRejectedValue(new Error('Network timeout'))
   const response = await GET(request)
-  expect(response.status).toBe(307)
-  expect(response.headers.get('location')).toContain('error=login_initiation_failed')
+  expect(response.status).toBe(307) // any error triggers this — not timeout-specific
 })
 ```
+Checklist: Does `describe` match precondition? Does `it` match expected outcome? Do assertions verify that specific outcome?
 
-```csharp
-// ❌ Name says "validates permissions" but only checks status code
-[Fact]
-public async Task ReturnsUnauthorized_WhenUserLacksPermissions()
-{
-    var response = await _client.GetAsync("/api/admin");
-    Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
-    // Never arranges a user WITHOUT permissions — test passes even if auth is completely broken
-}
-```
+**Hardcoded mock values** — `beforeEach` always sets the same value (e.g., `isAuthenticated: true`) and no test overrides it. The non-default path is untested.
 
-**Checklist for each test:**
-- Does the `describe`/`context` block accurately describe the precondition?
-- Does the `it`/`test` name accurately describe the expected outcome?
-- Do the assertions verify that specific outcome, not just a side effect that any scenario would produce?
-- If AAA comments exist, does the code under each comment match what the comment says?
-
-**Wrong-level tests** -- testing at a higher level than necessary:
+**Wrong-level** — pure function tested through full render/integration:
 ```typescript
-// Pure validation function tested through a full component render
 render(<AddressForm />)
 await user.type(screen.getByLabelText('City'), "'; DROP TABLE")
 // Same bug caught by: expect(validateCity("'; DROP TABLE")).toEqual({ valid: false })
 ```
-```csharp
-// Pure validation logic tested through a full integration test
-var response = await _client.PostAsync("/api/checklists", content);
-// Same bug caught by: Assert.False(WizardChecklistRequest.IsValid(badInput))
-```
-```python
-# Pure parsing logic tested through a full FastAPI test client
-response = client.post("/api/parse", json={"input": bad_data})
-# Same bug caught by: assert parse_config(bad_data) == expected_error
-```
-If the logic under test is a pure function or standalone module, test it directly.
-Higher-level tests add setup cost, execution time, and failure surface without catching additional bugs.
+Test pure functions directly. Higher-level tests add cost without catching additional bugs.
+
+**E2E-specific anti-patterns:**
+- **Timing waits** — `waitForTimeout(500)` is flaky. Use assertion-based waiting (`expect(el).toBeVisible({ timeout })`) or poll for a condition.
+- **Third-party selectors** — `[data-sonner-toast]`, `[data-radix-*]`, etc. couple tests to library internals. Query by role, text, or label instead. If no accessible selector exists, that's a production a11y issue, not a test workaround.
+- **Conditional guards** — `if (await el.isVisible()) { ... }` silently passes when the element doesn't exist. Use unconditional `expect(el).toBeVisible()` so missing elements fail the test.
+- **Data-lookup duplication** — E2E tests re-verifying every row of a lookup table (error code → message) already exhaustively covered at unit level. Keep 1-2 representative E2E flows; unit tests own the data contract.
 
 ## Positive Signals
 
-Tests are useful when they:
-
-- **Describe behavior in the test name**: "displays error toast when login fails" / "ReturnsNotFound_WhenChecklistDoesNotExist" / "test_returns_empty_list_when_no_matches_found" -- not "test case 3"
-- **Follow AAA clearly**: Arrange (setup), Act (one action), Assert (observable outcome)
-- **Fail for the right reason**: A bug in production code should make exactly this test fail
-- **Test one behavior each**: A failing test immediately tells you WHAT broke
-- **Use realistic data**: Not `"test"` and `123` but domain-representative values
+- Behavior in test name: "displays error toast when login fails" not "test case 3"
+- Clear AAA: Arrange, Act, Assert (one action, observable outcome)
+- Fails for the right reason — a production bug makes exactly this test fail
+- Tests one behavior each
+- Uses realistic, domain-representative data
 
 ## Output Format
 
-For each test file reviewed, summarize:
-1. **Useful tests**: Count and brief description of tests providing real value
-2. **Suspect tests**: Tests that may be coupled to implementation (with specific concern)
-3. **Anti-patterns found**: Any tautological, mirror, framework, overlap, or name-body mismatch tests
-4. **Recommendations**: Specific refactoring suggestions for suspect tests
+Per test file: (1) Useful tests count + summary, (2) Suspect tests with specific concerns, (3) Anti-patterns found, (4) Recommendations for refactoring.

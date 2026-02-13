@@ -8,97 +8,71 @@ globs:
 
 # Test Strategy (Planning Phase)
 
-Quality decisions made during planning prevent wasted effort writing tests that get flagged in review. This rule captures what to decide upfront — not what to verify after.
+Quality decisions during planning prevent wasted effort writing tests flagged in review.
 
-> **Companion rules**: `bdd-story-analysis.mdc` covers scenario writing, pyramid distribution, and test level selection. Framework-specific testing rules cover syntax and tooling. This rule fills the gap between those.
+> **Companion rules**: `bdd-story-analysis.mdc` (scenarios, pyramid, test levels), framework-specific rules (syntax/tooling), `test-usefulness.mdc` (anti-patterns to avoid during planning).
 
 ## Choose the Right Test Level
 
-When planning which level to test a behavior at, apply the cost principle: test at the lowest level that catches the bug.
+Test at the lowest level that catches the bug.
 
 | If the logic is... | Plan a... | Not a... |
 |---|---|---|
-| Pure function (validation, formatting, calculation) | Unit test calling the function directly | Component render, controller test, or integration test |
-| Module with dependencies on other internal modules | Integration test with real or stubbed collaborators | E2E test |
-| UI component with user interaction | Integration test with a DOM testing library | E2E test |
-| Full user journey, multi-service flow, or real external dependency | E2E test (only if critical path) | Integration test with excessive mocking |
+| Pure function (validation, formatting, calculation) | Unit test calling it directly | Component/controller/integration test |
+| Module with internal dependencies | Integration test with real or stubbed collaborators | E2E test |
+| UI component with user interaction | Integration test with DOM testing library | E2E test |
+| Full user journey or multi-service flow | E2E test (critical paths only) | Integration test with excessive mocking |
 
-Higher-level tests add setup cost, execution time, and failure surface without catching additional bugs when the logic is testable at a lower level.
+## Verify Happy Path First
 
-## Verify Happy Path Coverage First
+Before planning error/edge tests, confirm happy path tests exist. If a story adds error handling:
 
-Before planning error and edge case tests, verify that happy path tests exist for the behavior under change. When a story adds error handling, the plan must confirm:
+- At least one test exercises the successful flow
+- Happy path wasn't removed by current changes
 
-- At least one test exercises the successful/default flow end-to-end
-- The happy path test was not removed or broken by the current changes
+If missing → plan happy path as the first test task. Error tests without a baseline prove graceful failure but not that it works.
 
-**Common planning trap**: A story scoped to "error handling" produces a test file titled "Failure Handling" with zero happy path tests. Error tests without a baseline success test prove the code fails gracefully — but not that it works at all.
+## Plan Complete Error Coverage
 
-If happy path tests don't exist, add them to the plan as the first test task. They establish the baseline that error tests deviate from.
+Enumerate **every** error the implementation handles — don't list "test error handling" with a sample of 3/7 codes. Each gets its own test case or parameterized row:
 
-## Plan for Complete Error Coverage
-
-When a feature handles multiple error states (error codes, fallback paths, redirect conditions, exception types), plan tests for **all** of them, not a representative sample.
-
-**Common planning trap**: Noting "test error handling" and listing 3 of 7 error codes. The 4 you skip are the ones with bugs.
-
-During planning, enumerate every error the implementation will handle:
-- Every error code the caller or UI responds to
+- Every error code the caller/UI responds to
 - Every validation rule with a distinct message
-- Every conditional redirect, fallback path, or exception filter
+- Every conditional redirect, fallback, or exception filter
 
-Each gets its own planned test case or parameterized test row.
+## Assert on Behavior, Not Internals
 
-## Plan Assertions on Behavior, Not Internals
-
-When defining what each test should verify, plan to assert on observable outputs. This avoids writing tests that break on refactor.
-
-| Plan to assert on... | Instead of... |
+| Assert on... | Not on... |
 |---|---|
 | Response status codes and bodies | Internal method call counts |
-| Rendered text, state, or navigation | Internal function invocations |
-| User-visible or caller-visible error messages | Specific internal exception types |
+| Rendered text, state, navigation | Internal function invocations |
+| User/caller-visible error messages | Internal exception types |
 | Return values and output state | Private field values |
-| Database state after operations (integration) | Repository method call counts |
+| Database state (integration) | Repository method call counts |
 
-**Planning question for each test**: "If someone refactored the internals without changing what the caller/user sees, would this test still pass?" If no, rethink the assertion.
+Planning question: "If internals were refactored without changing caller/user behavior, would this test still pass?"
 
-## Plan Edge Cases by Category
+## Plan Edge Cases
 
-For each behavior in the plan, scan these categories and note which apply. Not every category applies to every feature — only include relevant ones.
+Scan per behavior — only include relevant ones. Reference `edge-case-heuristics.mdc` for detailed checklists.
 
-| Category | What to plan for |
+| Category | Plan for |
 |---|---|
-| **Boundaries** | n-1, n, n+1 for every limit in the feature |
-| **Empty/zero/null** | Zero items, empty strings, missing params, null values |
-| **State** | Mid-operation failures, stale data, concurrent access |
-| **Interruptions** | Network loss, timeout, session expiry during action |
-| **Conditional branches** | Both sides of `||`/`&&`/`??`, each step in fallback chains (`a ?? b ?? c ?? default`), null at each level of optional chains (`a?.b?.c`) |
-| **Context variation** | Non-default values for contextual dependencies: route path, locale, user role, tenant, environment, feature flags |
-
-Reference `edge-case-heuristics.mdc` for detailed checklists when the feature touches data inputs, CRUD operations, or web navigation.
-
-## Avoid Planning Wasteful Tests
-
-These anti-patterns are cheaper to prevent during planning than to flag during review.
-
-| Anti-pattern | Planning fix |
-|---|---|
-| **Tautological** — test always passes (`expect(true).toBe(true)`, `Assert.NotNull(result)`, `assert result is not None`) | Plan a specific expected value for every assertion |
-| **Mirror** — test re-implements production logic to derive expected value | Plan expected values as hardcoded literals from the spec |
-| **Framework** — tests that a library works, not that your code works | Only plan tests for YOUR logic; assume the framework does its job |
-| **Overlap** — same behavior tested at multiple pyramid levels | Assign each behavior to ONE level during planning; only duplicate for high-risk paths |
-| **Wrong-level** — pure logic tested through a full integration setup | See "Choose the Right Test Level" above |
+| Boundaries | n-1, n, n+1 for every limit |
+| Empty/zero/null | Zero items, empty strings, missing params |
+| State | Mid-operation failures, stale data, concurrent access |
+| Interruptions | Network loss, timeout, session expiry |
+| Conditional branches | Both sides of `\|\|`/`&&`/`??`, each fallback step, null at each optional chain level |
+| Context variation | Non-default route, locale, role, tenant, environment, feature flags |
 
 ## Planning Checklist
 
-Before finalizing a test plan, verify:
-
-- [ ] Happy path tests exist (or are planned) for every route/controller/handler/service under change
-- [ ] Each acceptance criterion has a test at a specific pyramid level
-- [ ] Error paths are enumerated individually, not grouped as "test error handling"
-- [ ] Compound conditions and fallback chains have each branch tested independently
-- [ ] Planned assertions target observable behavior, not internals
-- [ ] Relevant edge case categories are addressed
-- [ ] No test is planned at a higher level than necessary
-- [ ] Each planned test verifies one behavior (name describes what it tests)
+- [ ] Compound ACs decomposed into individual testable requirements (split lists, "mentioned below" references, embedded scenarios in Notes/Technical Details)
+- [ ] Happy path tests exist or are planned for every unit under change
+- [ ] Each decomposed AC has a test at a specific pyramid level
+- [ ] Error paths enumerated individually, not grouped
+- [ ] Compound conditions and fallback chains have each branch tested
+- [ ] Assertions target observable behavior, not internals
+- [ ] Relevant edge case categories addressed
+- [ ] No test planned at a higher level than necessary
+- [ ] Each test verifies one behavior (name describes what it tests)
