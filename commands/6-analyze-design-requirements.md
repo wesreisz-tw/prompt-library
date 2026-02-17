@@ -17,9 +17,13 @@ Using the Figma MCP server connection, perform the following analysis:
    CRITICAL: Extract the actual Figma variable names using get_variable_defs for the node/page
    This ensures we capture the design system's naming conventions for reuse.
    
+   **COLOR CONVERSION (hex → OKLCH)**: Figma exports colors as hex. Our design system uses OKLCH.
+   For each color variable, run: `node scripts/convert-hex-to-oklch.mjs #HEXVALUE`
+   Use the OKLCH output in the design analysis and for globals.css. Document both hex (Figma source) and OKLCH (implementation) in the tokens.
+   
    For each variable category, document:
    - **Variable Name** (as defined in Figma, e.g., 'color/primary/500', 'spacing/lg')
-   - **Value** (actual value, e.g., '#3B82F6', '16px')
+   - **Value** (hex from Figma; OKLCH from conversion for colors—use script above)
    - **Scope** (where it's used: colors, typography, spacing, etc.)
    - **Semantic Meaning** (purpose/usage guidelines)
    
@@ -103,7 +107,8 @@ Document the actual Figma variable names for reusability:
 {
   "colors": {
     "figmaVariableName": "color/primary/500",
-    "value": "#3B82F6",
+    "figmaValue": "#3B82F6",
+    "value": "oklch(0.585 0.193 264.376)",
     "cssVarName": "--color-primary-500",
     "usage": "Primary action buttons, links"
   },
@@ -145,6 +150,13 @@ Document the actual Figma variable names for reusability:
   }
 }
 ```
+
+### Color Token Format
+For colors: always convert Figma hex to OKLCH using `node scripts/convert-hex-to-oklch.mjs #HEXVALUE`.
+Document `figmaValue` (hex) and `value` (OKLCH) so both source and implementation are traceable.
+
+### Unit Format (rem)
+Spacing, dimensions, typography sizes in globals.css use rem (16px base). When adding new px tokens from Figma, run `node scripts/convert-px-to-rem.mjs app/globals.css --write` or convert manually (px ÷ 16 = rem). Breakpoints stay in px.
 
 ### Variable Naming Convention
 Document the pattern used in Figma variables:

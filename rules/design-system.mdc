@@ -17,11 +17,15 @@ alwaysApply: false
 
 ### 1.2 Design Token Categories
 
+*Source: Figma App-Designs, Home page (node-id=14430-88857). Convert hex via `node scripts/convert-hex-to-oklch.mjs #HEX`. Tokens use rem (16px base); run `node scripts/convert-px-to-rem.mjs app/globals.css --write` when adding new px tokens.*
+
 **Colors**:
 
 - `base/foreground`, `base/background`, `base/primary`, `base/primary-foreground`
 - `base/border`, `base/input`, `base/muted-foreground`
 - `custom/accent` for hover states
+- `tailwind colors/base/black` → `#000000` → `oklch(0 0 none)`
+- `tailwind colors/base/transparent` → `#ffffff00` → transparent
 - Map to CSS variables: `--color-foreground`, `--color-background`, etc.
 
 **Typography**:
@@ -31,23 +35,70 @@ alwaysApply: false
 - `text-4xl/leading-normal/extrabold` (36px H1 mobile)
 - `text-base/leading-normal/normal` (16px body)
 - `text-sm/leading-normal/medium` (14px buttons)
+- `text-xs/leading-normal/medium` → 12px / 16px line-height, weight 500
 
-**Spacing**:
+**Spacing** (in rem, 16px base):
 
-- `spacing/2` (8px), `spacing/4` (16px), `spacing/6` (24px), `spacing/8` (32px), `spacing/10` (40px), `spacing/12` (48px), `spacing/20` (80px)
+- `spacing/0` (0), `spacing/2` (0.5rem), `spacing/3` (0.75rem), `spacing/4` (1rem), `spacing/6` (1.5rem), `spacing/8` (2rem), `spacing/10` (2.5rem), `spacing/12` (3rem), `spacing/20` (5rem)
 - Use Tailwind utilities: `gap-2`, `p-4`, `gap-6`, `gap-8`
 
-**Borders & Shadows**:
+**Dimensions** (from Figma, in rem):
 
-- `border-radius/rounded-md` (8px) → `--border-radius-md`
+- `width/w-4` (1rem), `height/h-8` (2rem)
+- `--touch-target-min` (2.75rem / 44px) → WCAG 2.5.5 minimum touch target
+
+**Borders & Shadows** (1px/2px kept for crisp borders):
+
+- `border-radius/rounded-md` (0.5rem) → `--border-radius-md`
 - `shadow/xs` → `--shadow-xs` (0px 1px 2px rgba(0,0,0,0.05))
 - `shadow/sm` → `--shadow-sm` (multi-layer shadow)
 
-**Breakpoints**:
+**Figma Variable Reference** (Home page node 14430:88857):
 
-- `breakpoint/sm` (360px) → Mobile
+| Figma Variable | Value | CSS Var |
+|---------------|-------|---------|
+| spacing/0 | 0 | --spacing-0 |
+| spacing/2 | 0.5rem | --spacing-2 |
+| spacing/3 | 0.75rem | --spacing-3 |
+| spacing/4 | 1rem | --spacing-4 |
+| spacing/20 | 5rem | --spacing-20-dbp27 |
+| tailwind colors/base/black | oklch(0 0 none) | (use for pure black) |
+| border-radius/rounded-md | 0.5rem | --border-radius-md |
+| breakpoint/2xl | 1440px | --breakpoint-2xl |
+| font/font-sans | Roboto | --font-roboto |
+| text-xs (size/line-height) | 12px / 16px | font-size/leading |
+| font-weight/medium | 500 | font-medium |
+
+**Breakpoints** (final design):
+
+- `breakpoint/xs` (360px max) → Smallest mobile; use `max-[360px]:` for xs-specific overrides
+- `breakpoint/sm` (567px) → Mobile; AGENCIES/SERVICES icons on top bar
 - `breakpoint/md` (768px) → Tablet
-- `breakpoint/2xl` (1440px) → Desktop
+- `breakpoint/lg` (1024px) → Tablet landscape; nav collapses to hamburger
+- `breakpoint/xl` (1280px) → Desktop
+- `breakpoint/xxl` / `2xl` (1440px) → Full desktop; inline nav, all elements visible
+
+**Responsive Typography** (Homepage, from Figma screenshots):
+
+| Element | xs | sm | md | lg | xl | xxl |
+|---------|-----|-----|-----|-----|-----|-----|
+| Hero H1 line-height | — | 2.25rem (36px) | — | 1.25rem (20px)* | 5rem (80px) | 5rem (80px) |
+| Hero body line-height | — | — | — | 2rem (32px) | — | — |
+
+*LG: 20px may be leading/gap; 36px font size on first line. Card titles use H2 at xs.
+
+**Responsive Spacing** (Homepage Hero section, rem):
+
+| Element gap | xs | sm | md | lg | xl | xxl |
+|-------------|-----|-----|-----|-----|-----|-----|
+| Hero headline ↔ body | 1.25rem | 1.25rem | — | 1.25rem | 1.25rem | 2.5rem |
+| Body ↔ search input | 1.5rem | 1.5rem | — | — | 2.5rem | 3.75rem |
+| Search ↔ helper text | 0.5rem | 0.5rem | — | 0.5rem | 0.5rem | 0.5rem |
+| Helper ↔ Explore link | 1.5rem | 1.5rem | — | — | 2.5rem | 3.75rem |
+| Hero ↔ "Prefer to browse" | 4rem | 4rem | 4rem | — | 4rem | 4rem |
+| Footer bottom padding | 1.75rem | 1.75rem | 1.75rem | 1.75rem | 2rem | 2rem |
+
+**Other**: xxl horizontal content padding 5rem (80px); footer column gap 1.75rem (28px). Capture from annotated Figma screenshots when analyzing new pages.
 
 ### 1.3 Using Design Tokens in Code
 
@@ -97,7 +148,8 @@ All custom utilities defined in `@theme inline` block:
 
 - **Prefer Tailwind utilities** over custom CSS
 - **Use `cn()` utility** for className merging (clsx + tailwind-merge)
-- **Mobile-first responsive design**: Default styles for mobile, then `sm:`, `md:`, `2xl:` prefixes
+- **Mobile-first responsive design**: Default for xs/base, then `sm:`, `md:`, `lg:`, `xl:`, `2xl:` prefixes
+- **xs-specific** (≤360px): Use `max-[360px]:` for overrides
 
 ---
 
@@ -194,18 +246,23 @@ const roboto = Roboto({
 
 ### 5.1 Breakpoint Strategy
 
-- **Mobile First**: Default styles target 360px width
-- **Tablet**: `md:` prefix for 768px+
-- **Desktop**: `2xl:` prefix for 1440px+
+- **Mobile First**: Default styles target xs (≤360px) / base viewport
+- **sm** (567px+): Top bar shows AGENCIES/SERVICES icons
+- **md** (768px+): Tablet; header uses drawer navigation
+- **lg** (1024px+): Nav collapses to hamburger; language icon only
+- **xl** (1280px+): Desktop layout
+- **2xl** / **xxl** (1440px+): Full desktop; inline nav, Sign up, BizWiz visible
 - **Max Width**: Content constrained at 1280px-1440px on desktop
 
 ### 5.2 Component Adaptations
 
-**Header**:
+**Header** (final design):
 
-- Desktop (1440px+): Full logo (189×40px), inline navigation, 80px horizontal padding
-- Tablet (768-1439px): Full logo, drawer navigation, 32px padding
-- Mobile (360-767px): Compact logo (36×36px), drawer navigation, 24px padding
+- xxl/xl (1280px+): Full logo (189×40px), inline nav, AGENCIES/SERVICES text, language selector, BizWiz, Sign up
+- lg/md (768-1279px): Full logo, hamburger menu, language icon only
+- sm (567-767px): Top bar AGENCIES/SERVICES as icons only
+- xs (≤360px): Top bar logo only; AGENCIES/SERVICES removed
+- Padding: 80px desktop, 32px tablet, 24px mobile
 
 **Hero**:
 
