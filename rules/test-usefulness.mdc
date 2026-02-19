@@ -83,7 +83,7 @@ Test pure functions directly. Higher-level tests add cost without catching addit
 - **Timing waits** — `waitForTimeout(500)` is flaky. Use assertion-based waiting (`expect(el).toBeVisible({ timeout })`) or poll for a condition.
 - **Third-party selectors** — `[data-sonner-toast]`, `[data-radix-*]`, etc. couple tests to library internals. Query by role, text, or label instead. If no accessible selector exists, that's a production a11y issue, not a test workaround.
 - **Conditional guards** — `if (await el.isVisible()) { ... }` silently passes when the element doesn't exist. Use unconditional `expect(el).toBeVisible()` so missing elements fail the test.
-- **Data-lookup duplication** — E2E tests re-verifying every row of a lookup table (error code → message) already exhaustively covered at unit level. Keep 1-2 representative E2E flows; unit tests own the data contract.
+- **Data-lookup duplication** — E2E tests re-verifying every row of a lookup table (error code → message) already exhaustively covered at unit/integration level. Keep 1-2 representative E2E flows; unit tests own the data contract.
 
 ## Positive Signals
 

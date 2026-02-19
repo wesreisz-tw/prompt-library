@@ -14,7 +14,25 @@ Systematically verify test completeness against the story and edge case heuristi
 
 ## Step 0: Discover All Test Files
 
-Do not rely on a commit diff alone. Search for all test files that import modules changed by the story, and list every test file in `__tests__/` subdirectories corresponding to changed production code. Missing a file means missing findings.
+**CRITICAL**: Complete ALL THREE steps below. Missing any step means incomplete review.
+
+Run these searches in order:
+
+1. **Jest tests**: 
+   - Run `Glob` with pattern: `**/*.test.ts*`
+   - Lists all unit/integration tests in `__tests__/` directory
+
+2. **Playwright tests**:
+   - Run `Glob` with pattern: `playwright/**/*.spec.ts`
+   - Lists all E2E and Playwright integration tests
+
+3. **Identify relevant tests**:
+   - Check which test files were modified/added in the story (git diff, commit history, PR changes)
+   - Use `Grep` to find tests containing feature keywords (component names, route paths, error codes)
+   - Check which tests import the changed production files
+   - Read the story to understand feature scope before selecting tests to review
+
+**STOP**: Do not proceed to Step 1 until you have completed all three steps above.
 
 ## Step 1: Map Tests to Acceptance Criteria
 
@@ -88,21 +106,39 @@ One row per heuristic category in the output. For covered categories, summarize 
 | Integration | 20-30% |
 | E2E | 5-10% |
 
-**Classification guide** — classify by isolation, not by test utility. `renderHook()` and `render()` are test harness mechanics, not classification signals.
+**Classification by mocking strategy**:
 
-| Test exercises... | Level |
-|---|---|
-| Single unit with all deps mocked or no deps (pure function, hook with all deps mocked, handler with all deps mocked) | Unit |
-| Multiple real collaborators (real context providers, real child components, real DB client, real HTTP) | Integration |
-| Real browser, real server, multi-page flow | E2E |
+| Dependencies | Level |
+|--------------|-------|
+| **All mocked** or no dependencies | Unit |
+| **Mix of mocked and real** | Integration |
+| **No mocking** (all real) | E2E |
 
-Classify per-test, not per-file — a file can contain both unit and integration tests. Anti-pattern: all tests at one level.
+**Mocking signals:**
+- Mocked: `jest.mock()`, `jest.fn()`, `page.route()`
+- Real: MSW/`setupServer` (HTTP layer), real DB client, real child components, real context providers
+- Test harness: `render()` and `renderHook()` — classify by what's inside (are deps mocked or real?)
+
+**When in doubt**: Choose Integration.
+
+**Examples:**
+- Pure function, no deps → Unit
+- `render()` + all deps mocked → Unit (component tested in isolation)
+- `render()` + real child components or context → Integration (real collaborators)
+- `renderHook()` + all deps mocked → Unit (hook tested in isolation)
+- API route with all deps `jest.mock()`ed → Unit
+- Playwright with `page.route()` → Integration (real browser + mocked API = mix)
+- Playwright with no mocking → E2E
+
+Classify per-test, not per-file — a file can contain tests at multiple levels. Anti-pattern: all tests at one level.
 
 ## Step 5: Write Review to File
 
 Write results to `specifications/{story-folder}/test-review.md`. Header: `# Test Review: {Story ID} — {Title}` with Date, Story path, Status. Sections separated by `---`:
 
-1. **Test Files Reviewed** — `| File | Type | Tests | Purpose |` with total count
+1. **Test Files Reviewed** — `| File | Type | Tests | Purpose |` with total count. Include ALL test files: unit tests (`__tests__/`), integration tests, AND Playwright tests (`playwright/integration/`, `playwright/e2e/`). Example:
+   - `__tests__/components/auth/login.test.tsx` | Integration | 5 | Login form behavior
+   - `playwright/e2e/auth-flow.spec.ts` | E2E | 3 | Complete auth user journey
 2. **AC → Test Mapping** — `| AC | Unit Test | Integration Test | E2E Test | Verdict |` with `file:line` refs. End with "X of Y ACs have tests. N are partial. K spec discrepancies."
 3. **Happy Path Coverage** — `| Unit Under Test | Happy Path Test? | Verdict |`
 4. **Error Path Coverage** — `| Error Path | Tested? |` — Yes with `file:line`, or **MISSING**
@@ -120,4 +156,11 @@ Write results to `specifications/{story-folder}/test-review.md`. Header: `# Test
 
 ## Summary Output
 
-Also summarize in response: (1) Coverage score: X/Y ACs tested, (2) Critical gaps, (3) Edge case gaps, (4) Pyramid balance, (5) Prioritized recommendations.
+Also summarize in response: 
+1. Coverage score: X/Y ACs tested at unit/integration/E2E levels
+2. Critical gaps (untested ACs, missing happy paths, spec discrepancies)
+3. Edge case gaps (timing, navigation, accessibility, security)
+4. Pyramid balance (current vs target percentages for unit/integration/E2E)
+5. Prioritized recommendations
+
+**Reminder**: E2E coverage must be reported separately. If you report "0 E2E tests", verify you ran `Glob` with `playwright/**/*.spec.ts` pattern.
