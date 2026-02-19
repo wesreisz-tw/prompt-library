@@ -70,6 +70,7 @@ Scan per behavior — only include relevant ones. Reference `edge-case-heuristic
 - [ ] Compound ACs decomposed into individual testable requirements (split lists, "mentioned below" references, embedded scenarios in Notes/Technical Details)
 - [ ] Happy path tests exist or are planned for every unit under change
 - [ ] Each decomposed AC has a test at a specific pyramid level
+- [ ] UI components have planned accessibility tests (keyboard navigation, screen reader compatibility, WCAG compliance)
 - [ ] Error paths enumerated individually, not grouped
 - [ ] Compound conditions and fallback chains have each branch tested
 - [ ] Assertions target observable behavior, not internals
