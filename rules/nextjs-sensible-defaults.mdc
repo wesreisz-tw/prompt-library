@@ -111,7 +111,8 @@ export const dynamic = 'force-dynamic'
 **Data fetching:**
 
 - Parallel fetches with `Promise.all()`
-- Use React Query for client-side state
+- Use React Query for client-side state — see `docs/REACT_QUERY_GUIDE.md` for the required pattern
+- AEM content **must** use Server Actions as `queryFn` (not `useEffect + fetch`) with server-side `prefetchQuery` + `HydrationBoundary` — see `docs/REACT_QUERY_GUIDE.md#server-actions-pattern-for-aem-content`
 
 ## 8. Error Handling
 
@@ -146,6 +147,7 @@ export const dynamic = 'force-dynamic'
 | Non-null assertion without validation          | MEDIUM   | Handle undefined case                  |
 | Magic strings/numbers in code                  | MEDIUM   | Extract to named constants             |
 | Inline user-facing text                        | MEDIUM   | Extract constants for i18n readiness   |
+| `useEffect + fetch` for AEM content            | HIGH     | Use Server Action as React Query `queryFn` — see `docs/REACT_QUERY_GUIDE.md` |
 
 For detailed examples, see `nextjs-patterns.mdc`.
 
@@ -155,3 +157,4 @@ For detailed examples, see `nextjs-patterns.mdc`.
 - Testing: `frontend-testing.mdc`
 - Accessibility: `accessibility.mdc`
 - Code examples: `nextjs-patterns.mdc`
+- Data fetching (React Query + Server Actions): `docs/REACT_QUERY_GUIDE.md`

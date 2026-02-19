@@ -22,6 +22,13 @@ INTENTION: Generate a focused, actionable plan that can be immediately executed 
 
 Create task-[N]-plan.md with this structure:
 
+## 0. Rules Loaded
+
+List every rule file read, by exact path:
+- `[relative path to rule file from repo root]` — matched glob `[glob]` for `[target files]`
+
+If no rules matched, write: "No matching rules found."
+
 ## 1. Issue
 
 - Clear statement of what needs to be implemented
@@ -39,6 +46,14 @@ Create task-[N]-plan.md with this structure:
 
 - Key requirements to validate implementation
 - **Test Gate**: If this task includes code changes, all existing unit tests MUST pass before execution is complete
+
+## 5. Rules Compliance Audit
+
+For each rule listed in **§0**, confirm compliance or flag deviation:
+- ✅ `[relative path from §0]` — compliant: [brief reason]
+- ⚠️ DEVIATION: `[relative path from §0]` — plan uses [X] instead of [required pattern] — **EXECUTION BLOCKED until developer types: `approved: [reason]`**
+
+Any rule in §0 missing from this audit is treated as unreviewed and blocks execution.
 
 Keep the plan concise and actionable. Each step should be specific enough that no creative decisions are needed during execution."
 
