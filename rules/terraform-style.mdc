@@ -6,7 +6,7 @@ alwaysApply: false
 
 # Terraform Coding Best Practices
 
-This document outlines the Terraform coding standards and best practices for the DCEO Business Portal Infrastructure as Code project.
+This document outlines Terraform coding standards and best practices for infrastructure as code projects.
 
 ## Code Formatting and Style
 
@@ -126,7 +126,7 @@ resource "aws_instance" "web" {
   instance_type = "t3.micro"
   tags = {
     Environment = "production"
-    Project     = "dceo-portal"
+    Project     = "my-project"  # Use var.project_name instead
   }
 }
 ```
@@ -142,7 +142,7 @@ resource "aws_instance" "web" {
 locals {
   required_tags = {
     Environment   = var.environment
-    Project       = "dceo-business-portal"
+    Project       = var.project_name
     Owner         = var.owner
     CreatedBy     = "terraform"
     CreatedDate   = timestamp()
@@ -255,7 +255,7 @@ variable "environment" {
 locals {
   common_tags = {
     Environment = var.environment
-    Project     = "dceo-business-portal"
+    Project     = var.project_name
     ManagedBy   = "terraform"
   }
 }

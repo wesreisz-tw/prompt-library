@@ -19,7 +19,7 @@ PROCESS:
 3. For each field, determine: existing model reference OR new field
 4. Apply reusability best practice: Fragment References for shared content (images, links, rich text)
 5. If ambiguous whether to reuse, ask user interactively
-6. Use path pattern: /content/dam/soi/en/web/dceo/businesssuccessportal/{type-plural}/
+6. Use path pattern: /content/dam/[tenant]/en/web/[project]/{type-plural}/ (replace [tenant] and [project] with your AEM configuration)
 7. Ensure accessibility: images need altText, interactive elements need labels
 
 OUTPUT FORMAT:
@@ -36,13 +36,13 @@ Tables only:
 - Include any design decisions that need confirmation
 
 ## 2. Folder Structure
-Paths using /content/dam/soi/en/web/dceo/businesssuccessportal/ pattern with brief rationale
+Paths using /content/dam/[tenant]/en/web/[project]/ pattern with brief rationale
 
 ## 3. Model Creation Instructions
 For each new model:
 
 ### Model Name: [ModelName]
-**Path**: /conf/dceo/settings/dam/cfm/models/[kebab-case]
+**Path**: /conf/[tenant]/settings/dam/cfm/models/[kebab-case]
 **Description**: [Single sentence - copy-pastable to AEM]
 
 **Fields**:

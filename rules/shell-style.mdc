@@ -8,7 +8,7 @@ alwaysApply: false
 
 ## Overview
 
-This document defines the coding standards for shell scripts in the DCEO Business Portal Infrastructure as Code project. These rules ensure consistency, maintainability, and security across all shell scripts.
+This document defines coding standards for shell scripts in infrastructure as code projects. These rules ensure consistency, maintainability, and security across all shell scripts.
 
 ## File Structure and Organization
 
@@ -474,4 +474,4 @@ Consider implementing pre-commit hooks to automatically check:
 - Line endings
 - Trailing whitespace
 
-This style guide ensures consistency, maintainability, and security across all shell scripts in the DCEO Business Portal Infrastructure project.
+This style guide ensures consistency, maintainability, and security across all shell scripts in infrastructure projects.
